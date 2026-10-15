@@ -23,6 +23,14 @@ cly_srepo_table_set_node_cell(struct libscols_cell *  cell,
 }
 
 static void
+cly_srepo_table_clear_node_cell(struct libscols_cell * cell)
+{
+	cly_assert(cell);
+
+	cly_table_cell_set_data(cell, NULL);
+}
+
+static void
 cly_srepo_table_set_err_cell(struct libscols_cell * cell,
                              const char * const *   style)
 {
@@ -55,17 +63,29 @@ cly_srepo_table_load(struct cly_table *         table,
 	                        (sr_get_oper_flag_t)data,
 	                        &cont) == SR_ERR_OK) {
 		cly_table_foreach_line(table, l, ln) {
-			const struct lyd_node * leaf;
-			struct libscols_cell *  cell =
-				cly_table_line_get_cell(ln, 1);
+			const struct lysc_node * scl;
+			const struct lyd_node *  dtl;
+			struct libscols_cell *   cell;
+			sr_error_t               err;
 
-			if (srepo_dat_find_node(
+			scl = cly_table_line_get_userdata(ln);
+			cly_assert(scl);
+
+			err = srepo_dat_find_node(
 				cont->tree,
-				cly_table_line_get_userdata(ln),
-				(struct lyd_node **)&leaf) == SR_ERR_OK)
+				scl->name,
+				(struct lyd_node **)&dtl);
+
+			cell = cly_table_line_get_cell(ln, 1);
+			cly_assert(cell);
+
+			if (err == SR_ERR_OK)
 				cly_srepo_table_set_node_cell(cell,
 				                              style,
-				                              leaf);
+				                              dtl);
+			else if ((err == SR_ERR_NOT_FOUND) &&
+			         !srepo_sch_is_mandatory(scl))
+				cly_srepo_table_clear_node_cell(cell);
 			else
 				cly_srepo_table_set_err_cell(cell, style);
 		}
@@ -126,7 +146,7 @@ cly_srepo_table_init(struct cly_srepo_table *           table,
 				(const struct lysc_node_leaf *)child;
 
 			ln = cly_table_new_line(&table->super);
-			cly_table_line_set_userdata(ln, (void *)leaf->name);
+			cly_table_line_set_userdata(ln, (void *)leaf);
 
 			cell = cly_table_line_get_cell(ln, 0);
 			cly_table_cell_set_data(cell, leaf->name);
@@ -168,15 +188,22 @@ cly_srepo_table_load_list_entry(const struct cly_table * table,
 	cly_assert(ln);
 
 	cly_table_foreach_col(table, c, col) {
-		struct libscols_cell *  cell = cly_table_line_get_cell(ln, c);
-		const struct lyd_node * leaf;
+		const struct lysc_node * scl = cly_table_col_get_userdata(col);
+		struct libscols_cell *   cell = cly_table_line_get_cell(ln, c);
+		const struct lyd_node *  dtl;
+		sr_error_t               err;
 
+		cly_assert(scl);
 		cly_assert(cell);
 
-		if (srepo_dat_find_node(entry,
-		                        cly_table_col_get_userdata(col),
-		                        (struct lyd_node **)&leaf) == SR_ERR_OK)
-			cly_srepo_table_set_node_cell(cell, style, leaf);
+		err = srepo_dat_find_node(entry,
+		                          scl->name,
+		                          (struct lyd_node **)&dtl);
+		if (err == SR_ERR_OK)
+			cly_srepo_table_set_node_cell(cell, style, dtl);
+		else if ((err == SR_ERR_NOT_FOUND) &&
+		         !srepo_sch_is_mandatory(scl))
+			cly_srepo_table_clear_node_cell(cell);
 		else
 			cly_srepo_table_set_err_cell(cell, style);
 	}
@@ -242,6 +269,98 @@ static const struct cly_table_ops cly_srepo_table_list_ops = {
 #error Invalid maximum number of data list table columns !
 #endif
 
+struct cly_srepo_table_array {
+	unsigned int              cnt;
+	unsigned int              nr;
+	const struct lysc_node ** items;
+};
+
+#define cly_srepo_table_array_foreach(_array, _cnt, _node) \
+	for (_cnt = 0, _node = (_array)->items[_cnt]; \
+	     _cnt < (_array)->cnt; \
+	     _cnt++, _node = (_array)->items[_cnt])
+
+static unsigned int
+cly_srepo_table_array_count(const struct cly_srepo_table_array * array)
+{
+	cly_assert(array);
+	cly_assert(array->nr <= CLY_TABLE_COLUMN_MAX);
+	cly_assert(array->cnt <= array->nr);
+	cly_assert(array->items);
+
+	return array->cnt;
+}
+static int
+cly_srepo_table_push_array(struct cly_srepo_table_array * array,
+                           const struct lysc_node *       node)
+{
+	cly_assert(array);
+	cly_assert(array->nr <= CLY_TABLE_COLUMN_MAX);
+	cly_assert(array->cnt <= array->nr);
+	cly_assert(array->items);
+	cly_assert(node);
+
+	if (array->cnt == array->nr) {
+		array->nr *= 2;
+		if (array->nr >= CLY_TABLE_COLUMN_MAX)
+			return -ENOBUFS;
+
+		array->items = cly_realloc(array->items,
+		                           array->nr * sizeof(array->items[0]));
+		cly_assert(array->items);
+	}
+
+	array->items[array->cnt++] = node;
+
+	return 0;
+}
+
+static void
+cly_srepo_table_init_array(struct cly_srepo_table_array * array)
+{
+	array->cnt = 0;
+	array->nr = CLY_SREPO_TABLE_LIST_INIT_NR;
+	array->items = cly_malloc(CLY_SREPO_TABLE_LIST_INIT_NR *
+	                          sizeof(array->items[0]));
+	cly_assert(array->items);
+}
+
+static void
+cly_srepo_table_fini_array(struct cly_srepo_table_array * array)
+{
+	cly_assert(array);
+	cly_assert(array->nr <= CLY_TABLE_COLUMN_MAX);
+	cly_assert(array->cnt <= array->nr);
+	cly_assert(array->items);
+
+	cly_free(array->items);
+}
+
+static int
+cly_srepo_table_new_col(struct cly_srepo_table * table,
+                        const struct lysc_node * node,
+                        double                   whint,
+                        int                      flags,
+                        const char *             color)
+{
+	cly_srepo_table_assert((const struct cly_srepo_table *)table);
+	cly_assert(node);
+
+	struct libscols_column * col;
+
+	col = cly_table_new_col(&table->super, node->name, whint, flags);
+	if (!col) {
+		cly_assert(errno != ENOBUFS);
+		return -errno;
+	}
+
+	cly_table_col_set_userdata(col, (void *)node);
+
+	cly_table_cell_set_color(cly_table_col_get_head(col), color);
+
+	return 0;
+}
+
 int
 cly_srepo_table_init_list(struct cly_srepo_table *         table,
                           const struct lysc_node *         list,
@@ -253,77 +372,72 @@ cly_srepo_table_init_list(struct cly_srepo_table *         table,
 	cly_assert(filter);
 	cly_assert_context(context);
 
-	unsigned int                   cnt = 0;
-	unsigned int                   nr = CLY_SREPO_TABLE_LIST_INIT_NR;
-	const struct lysc_node_leaf ** fields = NULL;
-	const struct lysc_node *       child;
+	struct cly_srepo_table_array   keys;
+	struct cly_srepo_table_array   fields;
+	const struct lysc_node *       leaf;
 	int                            err;
+	unsigned int                   cnt;
 	unsigned int                   c;
+	const char *                   clr;
 
-	fields = cly_malloc(nr * sizeof(fields[0]));
-	cly_assert(fields);
-	srepo_sch_foreach_child(list, child) {
-		if ((srepo_sch_node_type(child) == LYS_LEAF) && filter(child)) {
-			assert(nr <= CLY_TABLE_COLUMN_MAX);
-			assert(cnt <= nr);
+	cly_srepo_table_init_array(&keys);
+	cly_srepo_table_init_array(&fields);
 
-			if (cnt == nr) {
-				nr *= 2;
-				if (nr >= CLY_TABLE_COLUMN_MAX) {
-					err = -ENOBUFS;
-					goto fini;
-				}
+	srepo_sch_foreach_child(list, leaf) {
+		if ((srepo_sch_node_type(leaf) == LYS_LEAF) && filter(leaf)) {
+			if (srepo_sch_is_key(leaf))
+				err = cly_srepo_table_push_array(&keys, leaf);
+			else
+				err = cly_srepo_table_push_array(&fields, leaf);
 
-				fields = cly_realloc(fields,
-				                     nr * sizeof(fields[0]));
-				cly_assert(fields);
-			}
-
-			fields[cnt++] = (const struct lysc_node_leaf *)child;
+			if (err)
+				goto fini_arrays;
 		}
 	}
 
+	cnt = cly_srepo_table_array_count(&keys) +
+	      cly_srepo_table_array_count(&fields);
 	if (!cnt) {
 		err = -ENOENT;
-		goto free;
+		goto fini_arrays;
 	}
 
 	cly_table_init(&table->super,
 	               context,
 	               false,
 	               &cly_srepo_table_list_ops);
-
-	for (c = 0; c < cnt; c++) {
-		struct libscols_column * col;
-
-		col = cly_table_new_col(&table->super,
-		                        fields[c]->name,
-		                        (double)cnt / 100.0,
-		                        SCOLS_FL_WRAP);
-		if (!col) {
-			cly_assert(errno != ENOBUFS);
-			err = -errno;
-			goto fini;
-		}
-
-		cly_table_col_set_userdata(col, (void *)fields[c]->name);
-
-		cly_table_cell_set_color(
-			cly_table_col_get_head(col),
-			cly_style_get_color(cly_get_style(context),
-			                    CLY_LABEL_STYLE_KIND));
+	clr = cly_style_get_color(cly_get_style(context), CLY_LABEL_STYLE_KIND);
+	cly_srepo_table_array_foreach(&keys, c, leaf) {
+		err = cly_srepo_table_new_col(table,
+		                              leaf,
+		                              (double)cnt / 100.0,
+		                              SCOLS_FL_WRAP,
+		                              clr);
+		if (err)
+			goto fini_table;
+	}
+	cly_srepo_table_array_foreach(&fields, c, leaf) {
+		err = cly_srepo_table_new_col(table,
+		                              leaf,
+		                              (double)cnt / 100.0,
+		                              SCOLS_FL_WRAP,
+		                              clr);
+		if (err)
+			goto fini_table;
 	}
 
 	cly_table_set_userdata(&table->super, srepo_sch_node_path(list));
 
-	cly_free(fields);
+	cly_srepo_table_fini_array(&keys);
+	cly_srepo_table_fini_array(&fields);
 
 	return 0;
 
-fini:
+fini_table:
 	cly_table_fini(&table->super);
-free:
-	cly_free(fields);
+fini_arrays:
+	cly_srepo_table_fini_array(&keys);
+	cly_srepo_table_fini_array(&fields);
 
 	return err;
 }

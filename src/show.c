@@ -565,6 +565,20 @@ cly_show_make_config_list_cmd(struct cly_dir *           directory,
 	                         context);
 }
 
+static bool
+cly_show_filter_oper_list_node(const struct lysc_node * node)
+{
+	cly_assert(node);
+	cly_assert(node->nodetype == LYS_LEAF);
+
+	if (srepo_sch_status_flags(node) &
+	    (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC))
+		return false;
+
+	return (srepo_sch_conf_flags(node) == LYS_CONFIG_R) ||
+	       srepo_sch_is_key(node);
+}
+
 static int
 cly_show_init_oper_list_cmd(struct cly_srepo_table *   table,
                             const struct lysc_node *   node,
@@ -576,7 +590,7 @@ cly_show_init_oper_list_cmd(struct cly_srepo_table *   table,
 
 	return cly_srepo_table_init_list(table,
 	                                 node,
-	                                 cly_show_filter_oper_node,
+	                                 cly_show_filter_oper_list_node,
 	                                 context);
 }
 
@@ -595,6 +609,6 @@ cly_show_make_oper_list_cmd(struct cly_dir *           directory,
 	                         node,
 	                         name,
 	                         cly_show_init_oper_list_cmd,
-	                         SR_OPER_NO_CONFIG,
+	                         SR_OPER_DEFAULT,
 	                         context);
 }
