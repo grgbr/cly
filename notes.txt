@@ -1,0 +1,80 @@
+IC required features
+====================
+
+* VPX slots startup configurations + configs common to all VPX slots (e.g., nacm
+  / user db)
+* cli commands generation
+* roussette / http2
+* yang deviation / extensions
+* modules install at build time cannot be done unless compiled-in as static
+  module within sysrepo. Seamless install might be performed at runtime with
+  module daemons using sr_install_module2() ?
+  See https://github.com/sysrepo/sysrepo/issues/3429
+      https://github.com/sysrepo/sysrepo/issues/3393
+* privileges managament / nacm
+
+sysrepo
+=======
+
+* at first sysrepoctl run, segfault when sysrepo shared memory are already left
+  uninitialized into /dev/shm...
+  maybe the same problem happens when factory-default data directory is not
+  cleaned up before first run
+* sysrepoctl creates connection / lock files under $(REPO_PATH), i.e.,
+  /etc/sysrepo !!
+
+cli
+===
+
+* cmd and args validation with proper user error messages
+* https://github.com/okda-networks/onm-cli
+* klish
+
+
+Pros
+====
+
+* almost 100% auto generated cli possible
+* auto generated web data model accesses (multiple yang npm modules available)
+* gratuitous netconf
+* gratuitous kea support
+* long-term restconf standard compliant API
+* partial frr support (API and yang data modeling)
+* yang schema (interop / model stability / known standard)
+* flexible yang data model
+* community based development (public opensource components)
+* datastore / transactional
+* export / import
+* fine granularity nacm / privileges model
+* interfaces plugin(s) available (integration workload to estimate):
+  * https://github.com/telekom/sysrepo-plugin-interfaces
+  * https://github.com/okda-networks/iproute2-sysrepo
+  * InfixOS (https://www.kernelkit.org/)
+
+Cons
+====
+
+* restconf like interface to develop (for web page API implementation)
+* limited sysrepo/gnmi support (see sysrepo-gnxi)
+
+YANG Extension parse / compile
+==============================
+
+As sysrepo creates libyang context with LY_CTX_STATIC_PLUGINS_ONLY flags, our
+own external plugin cannot be loaded out of the box:
+- we must patch sysrepo to disable this flags in sr_ly_ctx_new() ;
+- or build our extension plugins as static ones within libyang such as plugins
+  found under <libyang>src/plugins_exts/ ;
+- anything else ?
+
+lys_module->extensions filled in at lys_parse_in() time for extension modules
+(i.e., the one that defines the extension)
+
+lys_module->compiled->exts filled in with extension instances at lys_compile()
+time thanks to the COMPILE_EXTS_GOTO call for module that uses extensions.
+
+Augment / path parsing / compiling:
+see <libyang>/src/lugins_exts/structure.c
+    lysp_stmt_augment() / lysp_stmt_validate_value()
+    references to LY_STMT_PATH
+
