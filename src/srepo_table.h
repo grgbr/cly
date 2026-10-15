@@ -26,7 +26,7 @@ cly_srepo_table_init(struct cly_srepo_table *           table,
 
 extern int
 cly_srepo_table_init_list(struct cly_srepo_table *         table,
-                          const struct lysc_node_list *    list,
+                          const struct lysc_node *         list,
                           cly_srepo_table_filter_node_fn * filter,
                           const struct cly_context *       context);
 

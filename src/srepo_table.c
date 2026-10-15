@@ -119,7 +119,7 @@ cly_srepo_table_init(struct cly_srepo_table *           table,
 	cly_table_new_col(&table->super, "Value", 0.7, SCOLS_FL_WRAP);
 
 	srepo_sch_foreach_child((const struct lysc_node *)container, child) {
-		if ((child->nodetype == LYS_LEAF) && filter(child)) {
+		if ((srepo_sch_node_type(child) == LYS_LEAF) && filter(child)) {
 			struct libscols_line *        ln;
 			struct libscols_cell *        cell;
 			const struct lysc_node_leaf * leaf =
@@ -244,7 +244,7 @@ static const struct cly_table_ops cly_srepo_table_list_ops = {
 
 int
 cly_srepo_table_init_list(struct cly_srepo_table *         table,
-                          const struct lysc_node_list *    list,
+                          const struct lysc_node *         list,
                           cly_srepo_table_filter_node_fn * filter,
                           const struct cly_context *       context)
 {
@@ -262,8 +262,8 @@ cly_srepo_table_init_list(struct cly_srepo_table *         table,
 
 	fields = cly_malloc(nr * sizeof(fields[0]));
 	cly_assert(fields);
-	srepo_sch_foreach_child((struct lysc_node *)list, child) {
-		if ((child->nodetype == LYS_LEAF) && filter(child)) {
+	srepo_sch_foreach_child(list, child) {
+		if ((srepo_sch_node_type(child) == LYS_LEAF) && filter(child)) {
 			assert(nr <= CLY_TABLE_COLUMN_MAX);
 			assert(cnt <= nr);
 
@@ -274,9 +274,8 @@ cly_srepo_table_init_list(struct cly_srepo_table *         table,
 					goto fini;
 				}
 
-				fields = cly_realloc(
-					fields,
-					sizeof(nr * sizeof(fields[0])));
+				fields = cly_realloc(fields,
+				                     nr * sizeof(fields[0]));
 				cly_assert(fields);
 			}
 
@@ -315,9 +314,7 @@ cly_srepo_table_init_list(struct cly_srepo_table *         table,
 			                    CLY_LABEL_STYLE_KIND));
 	}
 
-	cly_table_set_userdata(&table->super,
-	                       srepo_sch_node_path((const struct lysc_node *)
-	                                           list));
+	cly_table_set_userdata(&table->super, srepo_sch_node_path(list));
 
 	cly_free(fields);
 

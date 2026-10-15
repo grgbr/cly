@@ -507,35 +507,58 @@ cly_show_make_oper_cmd(struct cly_dir *                   directory,
 	                         context);
 }
 
+#if defined(CONFIG_CLY_DEBUG)
+
+/*
+ * Ensure the schema node given in argument has at least one LYS_LIST parent
+ * node or is a list schema node itself.
+ */
+static bool
+cly_show_is_list_entry(const struct lysc_node * node)
+{
+	cly_assert(node);
+	cly_assert((srepo_sch_node_type(node) == LYS_LIST) ||
+	           (srepo_sch_node_type(node) == LYS_CONTAINER));
+
+	do {
+		if (srepo_sch_node_type(node) == LYS_LIST)
+			return true;
+		node = srepo_sch_parent(node);
+	} while (node);
+
+	return false;
+}
+
+#endif /* defined(CONFIG_CLY_DEBUG) */
+
 static int
 cly_show_init_config_list_cmd(struct cly_srepo_table *   table,
                               const struct lysc_node *   node,
                               const struct cly_context * context)
 {
 	cly_assert(table);
-	cly_assert(node);
-	cly_assert(node->nodetype == LYS_LIST);
+	cly_assert(cly_show_is_list_entry(node));
 	cly_assert_context(context);
 
 	return cly_srepo_table_init_list(table,
-	                                 (const struct lysc_node_list *)node,
+	                                 node,
 	                                 cly_show_filter_config_node,
 	                                 context);
 }
 
 int
-cly_show_make_config_list_cmd(struct cly_dir *              directory,
-                              const struct lysc_node_list * list,
-                              const char *                  name,
-                              const struct cly_context *    context)
+cly_show_make_config_list_cmd(struct cly_dir *           directory,
+                              const struct lysc_node *   node,
+                              const char *               name,
+                              const struct cly_context * context)
 {
 	cly_dir_assert(directory);
-	cly_assert(list);
+	cly_assert(cly_show_is_list_entry(node));
 	cly_assert(name);
 	cly_assert_context(context);
 
 	return cly_show_make_cmd(directory,
-	                         (const struct lysc_node *)list,
+	                         node,
 	                         name,
 	                         cly_show_init_config_list_cmd,
 	                         SR_OPER_NO_STATE,
@@ -548,29 +571,28 @@ cly_show_init_oper_list_cmd(struct cly_srepo_table *   table,
                             const struct cly_context * context)
 {
 	cly_assert(table);
-	cly_assert(node);
-	cly_assert(node->nodetype == LYS_LIST);
+	cly_assert(cly_show_is_list_entry(node));
 	cly_assert_context(context);
 
 	return cly_srepo_table_init_list(table,
-	                                 (const struct lysc_node_list *)node,
+	                                 node,
 	                                 cly_show_filter_oper_node,
 	                                 context);
 }
 
 int
-cly_show_make_oper_list_cmd(struct cly_dir *              directory,
-                            const struct lysc_node_list * list,
-                            const char *                  name,
-                            const struct cly_context *    context)
+cly_show_make_oper_list_cmd(struct cly_dir *           directory,
+                            const struct lysc_node *   node,
+                            const char *               name,
+                            const struct cly_context * context)
 {
 	cly_dir_assert(directory);
-	cly_assert(list);
+	cly_assert(cly_show_is_list_entry(node));
 	cly_assert(name);
 	cly_assert_context(context);
 
 	return cly_show_make_cmd(directory,
-	                         (const struct lysc_node *)list,
+	                         node,
 	                         name,
 	                         cly_show_init_oper_list_cmd,
 	                         SR_OPER_NO_CONFIG,
