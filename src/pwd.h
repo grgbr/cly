@@ -1,11 +1,11 @@
-#ifndef _CLI_PWD_H
-#define _CLI_PWD_H
+#ifndef _CLY_PWD_H
+#define _CLY_PWD_H
 
 #include "common.h"
 
-struct cli_dir;
+struct cly_dir;
 
 extern void
-cli_pwd_build_cmd(struct cli_dir * directory);
+cly_pwd_build_cmd(struct cly_dir * directory);
 
-#endif /* _CLI_PWD_H */
+#endif /* _CLY_PWD_H */

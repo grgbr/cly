@@ -1,273 +1,282 @@
 #include "dir.h"
-#include "yang.h"
+#include "cly.h"
 #include "match.h"
+#include <srutils/srepo/schema.h>
 #include <errno.h>
 
 static int
-cli_dir_walk_recurs(struct cli_dir *   directory,
-                    cli_dir_visit_fn * visit,
+cly_dir_walk_recurs(struct cly_dir *   directory,
+                    cly_dir_visit_fn * visit,
                     void *             data)
 {
 #warning Remove recursion
-	cli_dir_assert(directory);
-	cli_assert(visit);
+	cly_dir_assert(directory);
+	cly_assert(visit);
 
 	int ret;
 
-	ret = visit(directory, CLI_WALK_PRE_EVT, data);
-	if (ret == CLI_WALK_CONT_RET) {
-		struct cli_dir * child;
+	ret = visit(directory, CLY_PRE_WALK_EVT, data);
+	if (ret == CLY_CONT_WALK_RET) {
+		struct cly_dir * child;
 
-		cli_dir_foreach_child(directory, child) {
-			ret = cli_dir_walk_recurs(child, visit, data);
+		cly_dir_foreach_child(directory, child) {
+			ret = cly_dir_walk_recurs(child, visit, data);
 			if (ret < 0)
 				return ret;
 		}
 
-		ret = visit(directory, CLI_WALK_POST_EVT, data);
-		cli_assert(ret <= 0);
+		ret = visit(directory, CLY_POST_WALK_EVT, data);
+		cly_assert(ret <= 0);
 	}
 
 	return (ret >= 0) ? 0 : ret;
 }
 
 int
-cli_dir_walk(struct cli_dir *   directory,
-             cli_dir_visit_fn * visit,
+cly_dir_walk(struct cly_dir *   directory,
+             cly_dir_visit_fn * visit,
              void *             data)
 {
-	cli_dir_assert(directory);
-	cli_assert(visit);
+	cly_dir_assert(directory);
+	cly_assert(visit);
 
-	struct cli_dir * child;
+	struct cly_dir * child;
 	int              ret = 0;
 
-	cli_dir_foreach_child(directory, child) {
-		ret = cli_dir_walk_recurs(child, visit, data);
+	cly_dir_foreach_child(directory, child) {
+		ret = cly_dir_walk_recurs(child, visit, data);
 		if (ret < 0)
 			return ret;
 	}
 
-	cli_assert(!ret);
+	cly_assert(!ret);
 	return 0;
 }
 
 static int
-cli_dir_walk_recurs_safe(struct cli_dir *   directory,
-                         cli_dir_visit_fn * visit,
+cly_dir_walk_recurs_safe(struct cly_dir *   directory,
+                         cly_dir_visit_fn * visit,
                          void *             data)
 {
 #warning Remove recursion
-	cli_dir_assert(directory);
-	cli_assert(visit);
+	cly_dir_assert(directory);
+	cly_assert(visit);
 
 	int ret;
 
-	ret = visit(directory, CLI_WALK_PRE_EVT, data);
-	if (ret == CLI_WALK_CONT_RET) {
-		struct cli_dir * child;
-		struct cli_dir * tmp;
+	ret = visit(directory, CLY_PRE_WALK_EVT, data);
+	if (ret == CLY_CONT_WALK_RET) {
+		struct cly_dir * child;
+		struct cly_dir * tmp;
 
-		cli_dir_foreach_child_safe(directory, child, tmp) {
-			ret = cli_dir_walk_recurs_safe(child, visit, data);
+		cly_dir_foreach_child_safe(directory, child, tmp) {
+			ret = cly_dir_walk_recurs_safe(child, visit, data);
 			if (ret < 0)
 				return ret;
 		}
 
-		ret = visit(directory, CLI_WALK_POST_EVT, data);
-		cli_assert(ret <= 0);
+		ret = visit(directory, CLY_POST_WALK_EVT, data);
+		cly_assert(ret <= 0);
 	}
 
 	return (ret >= 0) ? 0 : ret;
 }
 
 int
-cli_dir_walk_safe(struct cli_dir *   directory,
-                  cli_dir_visit_fn * visit,
+cly_dir_walk_safe(struct cly_dir *   directory,
+                  cly_dir_visit_fn * visit,
                   void *             data)
 {
-	cli_dir_assert(directory);
-	cli_assert(visit);
+	cly_dir_assert(directory);
+	cly_assert(visit);
 
-	struct cli_dir * child;
-	struct cli_dir * tmp;
+	struct cly_dir * child;
+	struct cly_dir * tmp;
 	int              ret = 0;
 
-	cli_dir_foreach_child_safe(directory, child, tmp) {
-		ret = cli_dir_walk_recurs_safe(child, visit, data);
+	cly_dir_foreach_child_safe(directory, child, tmp) {
+		ret = cly_dir_walk_recurs_safe(child, visit, data);
 		if (ret < 0)
 			return ret;
 	}
 
-	cli_assert(!ret);
+	cly_assert(!ret);
 	return 0;
 }
 
 ssize_t
-cli_dir_mkrel(const struct cli_dir * directory,
-              const struct cli_dir * ancestor,
+cly_dir_mkrel(const struct cly_dir * directory,
+              const struct cly_dir * ancestor,
               char *                 path,
               size_t                 size)
 {
-	cli_dir_assert(directory);
-	cli_dir_assert(ancestor);
-	cli_assert(directory != ancestor);
-	cli_assert(path);
-	cli_assert(size);
-	cli_assert(size <= CLI_PATH_MAX);
+	cly_dir_assert(directory);
+	cly_dir_assert(ancestor);
+	cly_assert(directory != ancestor);
+	cly_assert(path);
+	cly_assert(size);
+	cly_assert(size <= CLY_PATH_MAX);
 
-	struct cli_path pth;
+	struct cly_path pth;
 	ssize_t         len;
 
-	cli_path_init(&pth);
+	cly_path_init(&pth);
 
 	do {
-		cli_dir_assert(directory);
+		cly_dir_assert(directory);
 
-		cli_path_push_head(&pth,
+		cly_path_push_head(&pth,
 		                   directory->name,
-		                   strnlen(directory->name, CLI_PATH_NAME_MAX));
+		                   strnlen(directory->name, CLY_PATH_NAME_MAX));
 		directory = directory->parent;
 	} while (directory != ancestor);
 
-	len = cli_path_mkrel(&pth, path, size);
+	len = cly_path_mkrel(&pth, path, size);
 
-	cli_path_fini(&pth);
+	cly_path_fini(&pth);
 
 	return len;
 }
 
 ssize_t
-cli_dir_mkabs(const struct cli_dir * directory, char * path, size_t size)
+cly_dir_mkabs(const struct cly_dir * directory, char * path, size_t size)
 {
-	cli_dir_assert(directory);
-	cli_assert(path);
-	cli_assert(size);
-	cli_assert(size <= CLI_PATH_MAX);
+	cly_dir_assert(directory);
+	cly_assert(path);
+	cly_assert(size);
+	cly_assert(size <= CLY_PATH_MAX);
 
-	struct cli_path pth;
+	struct cly_path pth;
 	ssize_t         len;
 
-	cli_path_init(&pth);
+	cly_path_init(&pth);
 
 	while (directory->parent) {
-		cli_dir_assert(directory);
+		cly_dir_assert(directory);
 
-		cli_path_push_head(&pth,
+		cly_path_push_head(&pth,
 		                   directory->name,
-		                   strnlen(directory->name, CLI_PATH_NAME_MAX));
+		                   strnlen(directory->name, CLY_PATH_NAME_MAX));
 		directory = directory->parent;
 	}
 
-	len = cli_path_mkabs(&pth, path, size);
-	cli_assert(len);
+	len = cly_path_mkabs(&pth, path, size);
+	cly_assert(len);
 
-	cli_path_fini(&pth);
+	cly_path_fini(&pth);
 
 	return len;
 }
 
 char *
-cli_dir_xpath(const struct cli_dir * directory)
+cly_dir_xpath(const struct cly_dir * directory)
 {
-	cli_dir_assert(directory);
+	cly_dir_assert(directory);
 
 	switch (directory->type) {
-	case CLI_DIR_NODE_TYPE:
-		return cli_lysc_node_xpath(directory->sch_node);
-	case CLI_DIR_MOD_TYPE:
-		return cli_lys_module_xpath(directory->sch_mod);
-	case CLI_DIR_NONE_TYPE:
-		return cli_strdup("/");
+	case CLY_DIR_NODE_TYPE:
+		return srepo_sch_node_path(directory->sch_node);
+	case CLY_DIR_MOD_TYPE:
+		return srepo_sch_module_path(directory->sch_mod);
+	case CLY_DIR_NONE_TYPE:
+		return cly_strdup("/");
 	default:
-		cli_assert(0);
+		cly_assert(0);
 	}
 }
 
 int
-cli_dir_show_yang(const struct cli_dir *     directory,
-                  const struct cli_context * context)
+cly_dir_show_yang(const struct cly_dir *     directory,
+                  const struct cly_context * context)
 {
-	cli_dir_assert(directory);
-	cli_assert_context(context);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
 
 	int ret;
 
 	switch (directory->type) {
-	case CLI_DIR_NODE_TYPE:
-		ret = cli_lysc_print_node_yang(context, directory->sch_node, 0);
+	case CLY_DIR_NODE_TYPE:
+		ret = srepo_sch_print_node_yang(context->lyout,
+		                                directory->sch_node,
+		                                0);
 		if (ret != LY_SUCCESS)
 			ret = -EBADR;
 		break;
 
-	case CLI_DIR_MOD_TYPE:
-		ret = cli_lys_print_module_yang(context, directory->sch_mod, 0);
+	case CLY_DIR_MOD_TYPE:
+		ret = srepo_sch_print_module_yang(context->lyout,
+		                                  directory->sch_mod,
+		                                  0);
 		if (ret != LY_SUCCESS)
 			ret = -EBADR;
 		break;
 
-	case CLI_DIR_NONE_TYPE:
+	case CLY_DIR_NONE_TYPE:
 		ret = -EBADR;
 		break;
 
 	default:
-		cli_assert(0);
+		cly_assert(0);
 	}
 
 	return ret;
 }
 
 int
-cli_dir_show_diag(const struct cli_dir *     directory,
-                  const struct cli_context * context)
+cly_dir_show_diag(const struct cly_dir *     directory,
+                  const struct cly_context * context)
 {
-	cli_dir_assert(directory);
-	cli_assert_context(context);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
 
 	int ret;
 
 	switch (directory->type) {
-	case CLI_DIR_NODE_TYPE:
-		ret = cli_lysc_print_node_diag(context, directory->sch_node);
+	case CLY_DIR_NODE_TYPE:
+		ret = srepo_sch_print_node_diag(context->lyout,
+		                                directory->sch_node,
+		                                cly_term_cols(context));
 		if (ret != LY_SUCCESS)
 			ret = -EBADR;
 		break;
 
-	case CLI_DIR_MOD_TYPE:
-		ret = cli_lys_print_module_diag(context, directory->sch_mod);
+	case CLY_DIR_MOD_TYPE:
+		ret = srepo_sch_print_module_diag(context->lyout,
+		                                  directory->sch_mod,
+		                                  cly_term_cols(context));
 		if (ret != LY_SUCCESS)
 			ret = -EBADR;
 		break;
 
-	case CLI_DIR_NONE_TYPE:
+	case CLY_DIR_NONE_TYPE:
 		ret = -EBADR;
 		break;
 
 	default:
-		cli_assert(0);
+		cly_assert(0);
 	}
 
 	return ret;
 }
 
 int
-cli_dir_search_from_path(const struct cli_dir ** directory,
-                         const struct cli_path * path)
+cly_dir_search_from_path(const struct cly_dir ** directory,
+                         const struct cly_path * path)
 {
-	cli_assert(directory);
-	cli_dir_assert(*directory);
-	cli_assert(path);
+	cly_assert(directory);
+	cly_dir_assert(*directory);
+	cly_assert(path);
 
-	const struct cli_dir *       dir = *directory;
+	const struct cly_dir *       dir = *directory;
 	unsigned int                 c;
 	unsigned int                 cnt;
-	const struct cli_path_comp * comp;
+	const struct cly_path_comp * comp;
 
-	cli_path_foreach_comp(path, c, cnt, comp) {
-		if (cli_path_comp_kind(comp) !=
-		    CLI_PATH_UPPER_COMP_KIND) {
-			cli_assert(cli_path_comp_kind(comp) ==
-			           CLI_PATH_REG_COMP_KIND);
+	cly_path_foreach_comp(path, c, cnt, comp) {
+		if (cly_path_comp_kind(comp) !=
+		    CLY_PATH_UPPER_COMP_KIND) {
+			cly_assert(cly_path_comp_kind(comp) ==
+			           CLY_PATH_REG_COMP_KIND);
 			break;
 		}
 
@@ -275,17 +284,17 @@ cli_dir_search_from_path(const struct cli_dir ** directory,
 			dir = dir->parent;
 	}
 
-	cli_path_foreach_comp_from(path, c, cnt, comp) {
+	cly_path_foreach_comp_from(path, c, cnt, comp) {
 		/* Iterate over each path component... */
-		const struct cli_dir * child;
+		const struct cly_dir * child;
 		bool                   found = false;
 
 		/*
 		 * ...and search a child directory which name matches
 		 * the current component.
 		 */
-		cli_dir_foreach_child(dir, child) {
-			if (!cli_path_comp_ncmp(comp,
+		cly_dir_foreach_child(dir, child) {
+			if (!cly_path_comp_ncmp(comp,
 			                        child->name,
 			                        strlen(child->name))) {
 				dir = child;
@@ -309,19 +318,19 @@ cli_dir_search_from_path(const struct cli_dir ** directory,
 }
 
 int
-cli_dir_search(const struct cli_dir ** directory, const char * path)
+cly_dir_search(const struct cly_dir ** directory, const char * path)
 {
-	cli_assert(directory);
-	cli_dir_assert(*directory);
-	cli_assert(path);
+	cly_assert(directory);
+	cly_dir_assert(*directory);
+	cly_assert(path);
 
-	struct cli_path        pth;
-	const struct cli_dir * dir = *directory;
+	struct cly_path        pth;
+	const struct cly_dir * dir = *directory;
 	int                    ret;
 
-	cli_path_init(&pth);
+	cly_path_init(&pth);
 
-	ret = cli_path_parse(&pth, path);
+	ret = cly_path_parse(&pth, path);
 	if (ret)
 		goto fini;
 
@@ -330,48 +339,48 @@ cli_dir_search(const struct cli_dir ** directory, const char * path)
 			dir = dir->parent;
 	}
 
-	ret = cli_dir_search_from_path(&dir, &pth);
+	ret = cly_dir_search_from_path(&dir, &pth);
 	if (ret)
 		goto fini;
 
 	*directory = dir;
 
 fini:
-	cli_path_fini(&pth);
+	cly_path_fini(&pth);
 
 	return ret;
 }
 
-struct cli_cmd *
-cli_dir_find_cmd(const struct cli_dir * directory, const char * name)
+struct cly_cmd *
+cly_dir_find_cmd(const struct cly_dir * directory, const char * name)
 {
-	cli_dir_assert(directory);
-	cli_assert(cli_cmd_name_isok(name));
+	cly_dir_assert(directory);
+	cly_assert(cly_cmd_name_isok(name));
 
-	struct cli_node * cmd;
+	struct cly_node * cmd;
 
-	cli_node_foreach_sibling((struct cli_node *)directory->cmds, cmd) {
-		if (!strcmp(name, ((const struct cli_cmd *)cmd)->name))
-			return (struct cli_cmd *)cmd;
+	cly_node_foreach_sibling((struct cly_node *)directory->cmds, cmd) {
+		if (!strcmp(name, ((const struct cly_cmd *)cmd)->name))
+			return (struct cly_cmd *)cmd;
 	}
 
 	return NULL;
 }
 
 int
-cli_dir_parse_cmd(const struct cli_dir * directory,
-                  struct cli_context *   context,
+cly_dir_parse_cmd(const struct cly_dir * directory,
+                  struct cly_context *   context,
                   int                    argc,
                   const char * const     argv[])
 {
-	cli_dir_assert(directory);
-	cli_assert_args(argc, argv);
+	cly_dir_assert(directory);
+	cly_assert_args(argc, argv);
 
-	const struct cli_node * cmd;
+	const struct cly_node * cmd;
 	int                     ret = 0;
 
-	cli_node_foreach_sibling((struct cli_node *)directory->cmds, cmd) {
-		ret = cli_cmd_parse((const struct cli_cmd *)cmd,
+	cly_node_foreach_sibling((struct cly_node *)directory->cmds, cmd) {
+		ret = cly_cmd_parse((const struct cly_cmd *)cmd,
 		                    directory,
 		                    context,
 		                    argc,
@@ -384,27 +393,27 @@ cli_dir_parse_cmd(const struct cli_dir * directory,
 }
 
 void
-cli_dir_complete_cmd(const struct cli_dir * directory,
-                     struct cli_context *   context,
+cly_dir_complete_cmd(const struct cly_dir * directory,
+                     struct cly_context *   context,
                      const char *           word,
                      size_t                 length,
                      int                    argc,
                      const char * const     argv[],
-                     struct cli_match *     matches)
+                     struct cly_match *     matches)
 {
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_assert(word);
-	cli_assert(length < CLI_ARG_MAX);
-	cli_assert(strnlen(word, CLI_ARG_MAX) == length);
-	cli_assert(argc >= 0);
-	cli_assert(!argc || argv);
-	cli_match_assert(matches);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(word);
+	cly_assert(length < CLY_ARG_MAX);
+	cly_assert(strnlen(word, CLY_ARG_MAX) == length);
+	cly_assert(argc >= 0);
+	cly_assert(!argc || argv);
+	cly_match_assert(matches);
 
-	const struct cli_node * cmd;
+	const struct cly_node * cmd;
 
-	cli_node_foreach_sibling((struct cli_node *)directory->cmds, cmd)
-		cli_cmd_complete((const struct cli_cmd *)cmd,
+	cly_node_foreach_sibling((struct cly_node *)directory->cmds, cmd)
+		cly_cmd_complete((const struct cly_cmd *)cmd,
 		                 directory,
 		                 context,
 		                 word,
@@ -415,16 +424,16 @@ cli_dir_complete_cmd(const struct cli_dir * directory,
 }
 
 void
-cli_dir_add_child(struct cli_dir * directory, struct cli_dir * child)
+cly_dir_add_child(struct cly_dir * directory, struct cly_dir * child)
 {
 #warning Make sure no other child with the same name exist (assertion).
-	cli_dir_assert(directory);
-	cli_dir_assert(child);
+	cly_dir_assert(directory);
+	cly_dir_assert(child);
 
-	struct cli_dir * head = directory->child;
+	struct cly_dir * head = directory->child;
 
 	if (head) {
-		struct cli_dir * tail = head->prev;
+		struct cly_dir * tail = head->prev;
 
 		child->prev = tail;
 		tail->next = child;
@@ -439,43 +448,43 @@ cli_dir_add_child(struct cli_dir * directory, struct cli_dir * child)
 }
 
 int
-cli_dir_create_cmdn_add(struct cli_dir *           directory,
-                        struct cli_cmd **          command,
+cly_dir_create_cmdn_add(struct cly_dir *           directory,
+                        struct cly_cmd **          command,
                         const char *               name,
-                        const struct cli_cmd_ops * opers)
+                        const struct cly_cmd_ops * opers)
 {
-	cli_dir_assert(directory);
-	cli_assert(command);
-	cli_assert(name);
-	cli_assert(name[0] != '\0');
-	cli_assert(!cli_dir_find_cmd(directory, name));
-	cli_cmd_assert_ops(opers);
+	cly_dir_assert(directory);
+	cly_assert(command);
+	cly_assert(name);
+	cly_assert(name[0] != '\0');
+	cly_assert(!cly_dir_find_cmd(directory, name));
+	cly_cmd_assert_ops(opers);
 
 	int ret;
 
-	ret = cli_cmd_create(command, name, opers);
+	ret = cly_cmd_create(command, name, opers);
 	if (ret)
 		return ret;
 
-	cli_dir_add_cmd(directory, *command);
+	cly_dir_add_cmd(directory, *command);
 
 	return 0;
 }
 
 static void
-_cli_dir_init(struct cli_dir *  directory,
+_cly_dir_init(struct cly_dir *  directory,
               const char *      name,
               size_t            length,
-              enum cli_dir_type type,
+              enum cly_dir_type type,
               const void *      schema)
 {
-	cli_assert(directory);
-	cli_assert(name);
-	cli_assert(length);
-	cli_assert(length < CLI_PATH_NAME_MAX);
-	cli_assert((type == CLI_DIR_NONE_TYPE) ||
-	           (type == CLI_DIR_MOD_TYPE) ||
-	           (type == CLI_DIR_NODE_TYPE));
+	cly_assert(directory);
+	cly_assert(name);
+	cly_assert(length);
+	cly_assert(length < CLY_PATH_NAME_MAX);
+	cly_assert((type == CLY_DIR_NONE_TYPE) ||
+	           (type == CLY_DIR_MOD_TYPE) ||
+	           (type == CLY_DIR_NODE_TYPE));
 
 	memcpy(directory->name, name, length + 1);
 	directory->next = NULL;
@@ -488,85 +497,85 @@ _cli_dir_init(struct cli_dir *  directory,
 }
 
 static int
-cli_dir_init(struct cli_dir *  directory,
+cly_dir_init(struct cly_dir *  directory,
              const char *      name,
-             enum cli_dir_type type,
+             enum cly_dir_type type,
              const void *      schema)
 {
-	cli_assert(directory);
-	cli_assert(name);
-	cli_assert((type == CLI_DIR_NONE_TYPE) ||
-	           (type == CLI_DIR_MOD_TYPE) ||
-	           (type == CLI_DIR_NODE_TYPE));
-	cli_assert((type == CLI_DIR_NONE_TYPE) ^ !!schema);
+	cly_assert(directory);
+	cly_assert(name);
+	cly_assert((type == CLY_DIR_NONE_TYPE) ||
+	           (type == CLY_DIR_MOD_TYPE) ||
+	           (type == CLY_DIR_NODE_TYPE));
+	cly_assert((type == CLY_DIR_NONE_TYPE) ^ !!schema);
 
 	size_t len;
 	int    ret;
 
-	len = strnlen(name, CLI_PATH_NAME_MAX);
-	ret = cli_path_comp_isok(name, len);
+	len = strnlen(name, CLY_PATH_NAME_MAX);
+	ret = cly_path_comp_isok(name, len);
 	if (ret)
 		return ret;
 
-	_cli_dir_init(directory, name, len, type, schema);
+	_cly_dir_init(directory, name, len, type, schema);
 
 	return 0;
 }
 
 static void
-cli_dir_fini(struct cli_dir * directory)
+cly_dir_fini(struct cly_dir * directory)
 {
-	cli_dir_assert(directory);
+	cly_dir_assert(directory);
 
-	struct cli_node * cmd;
-	struct cli_node * tmp;
+	struct cly_node * cmd;
+	struct cly_node * tmp;
 
-	cli_node_foreach_sibling_safe((struct cli_node *)directory->cmds,
+	cly_node_foreach_sibling_safe((struct cly_node *)directory->cmds,
 	                              cmd,
 	                              tmp)
-		cli_cmd_destroy((struct cli_cmd *)cmd);
+		cly_cmd_destroy((struct cly_cmd *)cmd);
 }
 
 void
-cli_dir_init_root(struct cli_dir * root)
+cly_dir_init_root(struct cly_dir * root)
 {
-	cli_assert(root);
+	cly_assert(root);
 
-	_cli_dir_init(root, "/", sizeof("/") - 1, CLI_DIR_NONE_TYPE, NULL);
+	_cly_dir_init(root, "/", sizeof("/") - 1, CLY_DIR_NONE_TYPE, NULL);
 }
 
 void
-cli_dir_fini_root(struct cli_dir * root)
+cly_dir_fini_root(struct cly_dir * root)
 {
-	cli_dir_assert(root);
+	cly_dir_assert(root);
 
-	cli_dir_fini(root);
+	cly_dir_fini(root);
 }
 
-struct cli_dir *
-cli_dir_create(const char * name, enum cli_dir_type type, const void * schema)
+struct cly_dir *
+cly_dir_create(const char * name, enum cly_dir_type type, const void * schema)
 {
-	cli_assert(name);
+	cly_assert(name);
 
-	struct cli_dir * dir;
+	struct cly_dir * dir;
 	int              err;
 
-	dir = cli_malloc(sizeof(*dir));
-	err = cli_dir_init(dir, name, type, schema);
+	dir = cly_malloc(sizeof(*dir));
+	err = cly_dir_init(dir, name, type, schema);
 	if (!err)
 		return dir;
 
-	cli_free(dir);
+	cly_free(dir);
 
 	errno = -err;
 	return NULL;
 }
 
 void
-cli_dir_destroy(struct cli_dir * directory)
+cly_dir_destroy(struct cly_dir * directory)
 {
-	cli_dir_fini(directory);
-	cli_free(directory);
+	cly_dir_fini(directory);
+	cly_free(directory);
 }
 
 /* Keep this just in case we would need it in the future. */
@@ -576,35 +585,35 @@ cli_dir_destroy(struct cli_dir * directory)
  * The newly created directory is returned into `directory'.
  */
 static int
-cli_dir_make(struct cli_dir ** directory,
+cly_dir_make(struct cly_dir ** directory,
              const char *      path,
-             enum cli_dir_type type,
+             enum cly_dir_type type,
              const void *      schema)
 {
-	cli_assert(directory);
-	cli_dir_assert(*directory);
-	cli_assert(path);
-	cli_assert((type == CLI_DIR_NONE_TYPE) ||
-	           (type == CLI_DIR_MOD_TYPE) ||
-	           (type == CLI_DIR_NODE_TYPE));
-	cli_assert((type == CLI_DIR_NONE_TYPE) ^ !!schema);
+	cly_assert(directory);
+	cly_dir_assert(*directory);
+	cly_assert(path);
+	cly_assert((type == CLY_DIR_NONE_TYPE) ||
+	           (type == CLY_DIR_MOD_TYPE) ||
+	           (type == CLY_DIR_NODE_TYPE));
+	cly_assert((type == CLY_DIR_NONE_TYPE) ^ !!schema);
 
 	if (*path != '\0') {
-		struct cli_path              pth;
-		const struct cli_path_comp * base;
-		struct cli_dir *             dir = *directory;
-		struct cli_dir *             child;
+		struct cly_path              pth;
+		const struct cly_path_comp * base;
+		struct cly_dir *             dir = *directory;
+		struct cly_dir *             child;
 		int                          ret;
 
-		cli_path_init(&pth);
+		cly_path_init(&pth);
 
 		/* Parse the given path entirely to tokenize path components. */
-		ret = cli_path_parse(&pth, path);
+		ret = cly_path_parse(&pth, path);
 		if (ret)
 			goto fini;
 
 		/* Extract last path component. */
-		base = cli_path_pop_tail(&pth);
+		base = cly_path_pop_tail(&pth);
 		if (!base) {
 			/* Root and current directories already exist. */
 			ret = -EEXIST;
@@ -618,32 +627,32 @@ cli_dir_make(struct cli_dir ** directory,
 		}
 
 		/* Now search for the parent directory of the given path. */
-		ret = cli_dir_search_from_path((const struct cli_dir **)&dir,
+		ret = cly_dir_search_from_path((const struct cly_dir **)&dir,
 		                               &pth);
 		if (ret)
 			/* Parent directory not found... */
 			goto fini;
 
-		switch (cli_path_comp_kind(base)) {
-		case CLI_PATH_REG_COMP_KIND:
+		switch (cly_path_comp_kind(base)) {
+		case CLY_PATH_REG_COMP_KIND:
 			break;
 
-		case CLI_PATH_UPPER_COMP_KIND:
-		case CLI_PATH_CURR_COMP_KIND:
+		case CLY_PATH_UPPER_COMP_KIND:
+		case CLY_PATH_CURR_COMP_KIND:
 			/* Well, current and upper directory already exist... */
 			ret = -EEXIST;
 			goto fini;
 
 		default:
-			cli_assert(0);
+			cly_assert(0);
 		}
 
 		/*
 		 * Make sure that the parent directory found has no child with
 		 * the same base name as the requested one.
 		 */
-		cli_dir_foreach_child(dir, child) {
-			if (!cli_path_comp_ncmp(base,
+		cly_dir_foreach_child(dir, child) {
+			if (!cly_path_comp_ncmp(base,
 			                        child->name,
 			                        strlen(child->name)))
 				return -EEXIST;
@@ -653,15 +662,15 @@ cli_dir_make(struct cli_dir ** directory,
 		 * Finally create the new directory and register it to its
 		 * parent.
 		 */
-		child = cli_malloc(sizeof(*child));
-		_cli_dir_init(child, base->str, base->len, type, schema);
-		cli_dir_add_child(dir, child);
+		child = cly_malloc(sizeof(*child));
+		_cly_dir_init(child, base->str, base->len, type, schema);
+		cly_dir_add_child(dir, child);
 
 		*directory = child;
 		ret = 0;
 
 fini:
-		cli_path_fini(&pth);
+		cly_path_fini(&pth);
 
 		return ret;
 	}
@@ -671,19 +680,19 @@ fini:
 #endif
 
 int
-cli_dir_make_child(struct cli_dir ** dir,
+cly_dir_make_child(struct cly_dir ** dir,
                    const char *      name,
-                   enum cli_dir_type type,
+                   enum cly_dir_type type,
                    const void *      schema)
 {
-	cli_assert(dir);
-	cli_dir_assert(*dir);
-	cli_assert(name);
+	cly_assert(dir);
+	cly_dir_assert(*dir);
+	cly_assert(name);
 
-	struct cli_dir * node = *dir;
-	struct cli_dir * child;
+	struct cly_dir * node = *dir;
+	struct cly_dir * child;
 
-	cli_dir_foreach_child(node, child) {
+	cly_dir_foreach_child(node, child) {
 		if (!strcmp(child->name, name)) {
 			if ((child->type == type) &&
 			    (child->sch_void == schema))
@@ -693,11 +702,11 @@ cli_dir_make_child(struct cli_dir ** dir,
 		}
 	}
 
-	child = cli_dir_create(name, type, schema);
+	child = cly_dir_create(name, type, schema);
 	if (!child)
 		return -errno;
 
-	cli_dir_add_child(node, child);
+	cly_dir_add_child(node, child);
 
 out:
 	*dir = child;
@@ -705,29 +714,29 @@ out:
 	return 0;
 }
 
-struct cli_dir *
-cli_dir_make_from_node(const struct lysc_node * node,
-                       struct cli_dir *         root,
-                       enum cli_dir_type        type,
+struct cly_dir *
+cly_dir_make_from_node(const struct lysc_node * node,
+                       struct cly_dir *         root,
+                       enum cly_dir_type        type,
                        const void *             schema)
 {
-	cli_assert(node);
-	cli_assert((node->nodetype == LYS_CONTAINER) ||
+	cly_assert(node);
+	cly_assert((node->nodetype == LYS_CONTAINER) ||
 	           (node->nodetype == LYS_LIST));
-	cli_assert((type == CLI_DIR_NONE_TYPE) ||
-	           (type == CLI_DIR_MOD_TYPE) ||
-	           (type == CLI_DIR_NODE_TYPE));
-	cli_assert((type == CLI_DIR_NONE_TYPE) ^ !!schema);
-	cli_assert((node != schema) || (type == CLI_DIR_NODE_TYPE));
+	cly_assert((type == CLY_DIR_NONE_TYPE) ||
+	           (type == CLY_DIR_MOD_TYPE) ||
+	           (type == CLY_DIR_NODE_TYPE));
+	cly_assert((type == CLY_DIR_NONE_TYPE) ^ !!schema);
+	cly_assert((node != schema) || (type == CLY_DIR_NODE_TYPE));
 
 	const struct lysc_node ** comps;
 	const struct lysc_node *  scn = node;
-	unsigned int              nr = CLI_PATH_INIT_NR;
+	unsigned int              nr = CLY_PATH_INIT_NR;
 	unsigned int              cnt = 0;
 	int                       err;
 
-	comps = cli_malloc(nr * sizeof(*comps));
-	cli_assert(comps);
+	comps = cly_malloc(nr * sizeof(*comps));
+	cly_assert(comps);
 
 	/*
 	 * Get up to the top-level schema node, stacking parent nodes down along
@@ -736,8 +745,8 @@ cli_dir_make_from_node(const struct lysc_node * node,
 	while (scn->parent) {
 		if (cnt == nr) {
 			nr *= 2;
-			comps = cli_realloc(comps, nr * sizeof(*comps));
-			cli_assert(comps);
+			comps = cly_realloc(comps, nr * sizeof(*comps));
+			cly_assert(comps);
 		}
 
 		scn = scn->parent;
@@ -751,9 +760,9 @@ cli_dir_make_from_node(const struct lysc_node * node,
 	 * Top-level node owner module should be the one that is given in
 	 * argument.
 	 */
-	err = cli_dir_make_child(&root,
+	err = cly_dir_make_child(&root,
 	                         scn->module->name,
-	                         CLI_DIR_MOD_TYPE,
+	                         CLY_DIR_MOD_TYPE,
 	                         scn->module);
 	if (err)
 		goto free;
@@ -765,25 +774,25 @@ cli_dir_make_from_node(const struct lysc_node * node,
 	 */
 	while (cnt--) {
 		scn = comps[cnt];
-		err = cli_dir_make_child(&root,
+		err = cly_dir_make_child(&root,
 		                         scn->name,
-		                         CLI_DIR_NODE_TYPE,
+		                         CLY_DIR_NODE_TYPE,
 		                         scn);
 		if (err)
 			goto free;
 	}
 
 	/* Finally, create directory for `node' given in argument. */
-	err = cli_dir_make_child(&root, node->name, type, schema);
+	err = cly_dir_make_child(&root, node->name, type, schema);
 	if (err)
 		goto free;
 
-	cli_free(comps);
+	cly_free(comps);
 
 	return root;
 
 free:
-	cli_free(comps);
+	cly_free(comps);
 
 	errno = -err;
 	return NULL;
@@ -794,35 +803,35 @@ free:
  ******************************************************************************/
 
 int
-cli_dir_work_search(const struct cli_dir_work * work,
-                    struct cli_context *        context,
-                    const struct cli_dir **     directory)
+cly_dir_work_search(const struct cly_dir_work * work,
+                    struct cly_context *        context,
+                    const struct cly_dir **     directory)
 {
-	cli_assert(work);
-	cli_assert(work->cmd);
-	cli_assert(strnlen(work->norm, CLI_PATH_MAX) == work->len);
+	cly_assert(work);
+	cly_assert(work->cmd);
+	cly_assert(strnlen(work->norm, CLY_PATH_MAX) == work->len);
 
-	const struct cli_dir * dir = cli_cwd(context);
+	const struct cly_dir * dir = cly_cwd(context);
 
-	if (cli_path_comp_count(&work->path)) {
+	if (cly_path_comp_count(&work->path)) {
 		int ret;
 
-		cli_assert(work->orig);
+		cly_assert(work->orig);
 		if (work->orig[0] == '/')
 			dir = &context->root;
 
-		ret = cli_dir_search_from_path(&dir, &work->path);
+		ret = cly_dir_search_from_path(&dir, &work->path);
 		if (ret) {
 			/*
 			 * Searching for the current directory cannot fail.
 			 * Hence, `work->orig' should always be a non-empty
 			 * string.
 			 */
-			cli_assert(work->orig && (work->orig[0] != '\0'));
-			cli_cmd_log(work->cmd,
+			cly_assert(work->orig && (work->orig[0] != '\0'));
+			cly_cmd_log(work->cmd,
 			            "'%s': %s.",
 			            work->orig,
-			            cli_dir_strerror(-ret));
+			            cly_dir_strerror(-ret));
 
 			return ret;
 		}
@@ -839,32 +848,32 @@ cli_dir_work_search(const struct cli_dir_work * work,
 }
 
 int
-cli_dir_work_parse(struct cli_dir_work * work,
+cly_dir_work_parse(struct cly_dir_work * work,
                    const char *          path,
                    bool                  mandatory)
 {
-	cli_assert(work);
-	cli_assert(work->cmd);
-	cli_assert(path);
+	cly_assert(work);
+	cly_assert(work->cmd);
+	cly_assert(path);
 
 	if (!work->orig) {
 		ssize_t ret = 0;
 
 		if (*path != '\0') {
-			ret = cli_path_parse(&work->path, path);
+			ret = cly_path_parse(&work->path, path);
 			if (ret)
 				goto out;
 
 			if (*path != '/')
-				ret = cli_path_mkrel(&work->path,
+				ret = cly_path_mkrel(&work->path,
 				                     work->norm,
 				                     sizeof(work->norm));
 			else
-				ret = cli_path_mkabs(&work->path,
+				ret = cly_path_mkabs(&work->path,
 				                     work->norm,
 				                     sizeof(work->norm));
 
-			cli_assert(ret >= 0);
+			cly_assert(ret >= 0);
 			if (ret && (work->norm[ret - 1] != '/')) {
 				if ((size_t)(ret + 1) >= sizeof(work->norm)) {
 					ret = -ENAMETOOLONG;
@@ -885,10 +894,10 @@ out:
 		if (!mandatory)
 			return 0;
 
-		cli_cmd_log(work->cmd,
+		cly_cmd_log(work->cmd,
 		            "'%s': invalid path argument: %s.",
 		            path,
-		            cli_path_strerror(-ret));
+		            cly_path_strerror(-ret));
 		return (int)ret;
 	}
 	else {
@@ -897,22 +906,22 @@ out:
 	}
 }
 
-struct cli_dir_work *
-cli_dir_work_create(size_t                      size,
-                    const struct cli_cmd *      command,
-                    const struct cli_work_ops * opers)
+struct cly_dir_work *
+cly_dir_work_create(size_t                      size,
+                    const struct cly_cmd *      command,
+                    const struct cly_work_ops * opers)
 {
-	cli_assert(size >= sizeof(struct cli_dir_work));
-	cli_cmd_assert(command);
-	cli_assert_work_ops(opers);
+	cly_assert(size >= sizeof(struct cly_dir_work));
+	cly_cmd_assert(command);
+	cly_assert_work_ops(opers);
 
-	struct cli_dir_work * wk;
+	struct cly_dir_work * wk;
 
-	wk = (struct cli_dir_work *)cli_create_work(size, opers);
-	cli_assert(wk);
+	wk = (struct cly_dir_work *)cly_create_work(size, opers);
+	cly_assert(wk);
 
 	wk->cmd = command;
-	cli_path_init(&wk->path);
+	cly_path_init(&wk->path);
 	wk->orig = NULL;
 	wk->len = 0;
 	wk->norm[0] = '\0';
@@ -921,203 +930,203 @@ cli_dir_work_create(size_t                      size,
 }
 
 static void
-cli_dir_work_fini(struct cli_dir_work * work)
+cly_dir_work_fini(struct cly_dir_work * work)
 {
-	cli_assert(work);
+	cly_assert(work);
 
-	cli_path_fini(&work->path);
+	cly_path_fini(&work->path);
 }
 
 void
-cli_dir_work_release(struct cli_work * work)
+cly_dir_work_release(struct cly_work * work)
 {
-	cli_dir_work_fini((struct cli_dir_work *)work);
+	cly_dir_work_fini((struct cly_dir_work *)work);
 }
 
-struct cli_dir_work_arg {
-	struct cli_arg super;
+struct cly_dir_work_arg {
+	struct cly_arg super;
 	bool           mand;
 };
 
 static int
-cli_dir_work_parse_arg(const struct cli_arg * argument,
-                       const struct cli_cmd * command,
-                       const struct cli_dir * directory __cli_unused,
-                       struct cli_context *   context __cli_unused,
+cly_dir_work_parse_arg(const struct cly_arg * argument,
+                       const struct cly_cmd * command,
+                       const struct cly_dir * directory __unused,
+                       struct cly_context *   context __unused,
                        int                    argc,
                        const char * const     argv[],
                        void *                 data)
 {
-	cli_arg_assert(argument);
-	cli_cmd_assert(command);
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_assert(argc);
-	cli_assert(argv[0]);
-	cli_assert(data);
+	cly_arg_assert(argument);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(argc);
+	cly_assert(argv[0]);
+	cly_assert(data);
 
 	int ret;
 
-	ret = cli_dir_work_parse(
-		(struct cli_dir_work *)data,
+	ret = cly_dir_work_parse(
+		(struct cly_dir_work *)data,
 		argv[0],
-		((const struct cli_dir_work_arg *)argument)->mand);
+		((const struct cly_dir_work_arg *)argument)->mand);
 
 	/* Ignore multiple path argument. */
 	return (ret != -EALREADY) ? ret : 0;
 }
 
 static void
-cli_dir_push_match(struct cli_match * matches, const char * dir_name)
+cly_dir_push_match(struct cly_match * matches, const char * dir_name)
 {
-	cli_match_assert(matches);
-	cli_assert(!cli_path_isok(dir_name));
-	cli_assert(dir_name[strlen(dir_name) - 1] == '/');
+	cly_match_assert(matches);
+	cly_assert(!cly_path_isok(dir_name));
+	cly_assert(dir_name[strlen(dir_name) - 1] == '/');
 
 	char * path;
 
-	path = cli_strdup(dir_name);
-	cli_assert(path);
+	path = cly_strdup(dir_name);
+	cly_assert(path);
 
-	cli_match_push(matches, path);
+	cly_match_push(matches, path);
 }
 
 static void
-cli_dir_join_push_match(struct cli_match * matches,
+cly_dir_join_push_match(struct cly_match * matches,
                         const char *       dir_name,
                         const char *       base_name)
 {
 	char * path;
 	int    ret;
 
-	ret = cli_asprintf(&path, "%s%s/", dir_name, base_name);
-	cli_assert(ret >= 2);
-	cli_assert(path);
+	ret = cly_asprintf(&path, "%s%s/", dir_name, base_name);
+	cly_assert(ret >= 2);
+	cly_assert(path);
 
-	cli_match_push(matches, path);
+	cly_match_push(matches, path);
 }
 
 static void
-cli_dir_generate_matches(const struct cli_dir * directory,
+cly_dir_generate_matches(const struct cly_dir * directory,
                          const char *           normalized,
-                         struct cli_match *     matches)
+                         struct cly_match *     matches)
 {
-	cli_dir_assert(directory);
-	cli_assert(!normalized || !cli_path_isok(normalized));
-	cli_assert(!normalized || (normalized[strlen(normalized) - 1] == '/'));
-	cli_match_assert(matches);
+	cly_dir_assert(directory);
+	cly_assert(!normalized || !cly_path_isok(normalized));
+	cly_assert(!normalized || (normalized[strlen(normalized) - 1] == '/'));
+	cly_match_assert(matches);
 
-	const struct cli_dir * child;
+	const struct cly_dir * child;
 
-	if (cli_dir_has_child(directory)) {
+	if (cly_dir_has_child(directory)) {
 		/*
 		 * Here, we give ownership of newly allocated directory name to
 		 * `matches'.
 		 * Allocated string ownership will be transfered from `matches'
-		 * to readline(3) by cli_shell_complete().
+		 * to readline(3) by cly_shell_complete().
 		 * Readline(3) will free(3) it at completion process termination
 		 * time.
 		 */
-		cli_dir_foreach_child(directory, child)
-			cli_dir_join_push_match(matches,
+		cly_dir_foreach_child(directory, child)
+			cly_dir_join_push_match(matches,
 			                        normalized ? normalized : "",
 			                        child->name);
 
-		cli_shell_suppress_complete_char();
+		cly_shell_suppress_complete_char();
 	}
 	else if (normalized)
-		cli_dir_push_match(matches, normalized);
+		cly_dir_push_match(matches, normalized);
 }
 
 static void
-cli_dir_generate_named_matches(const struct cli_dir * directory,
+cly_dir_generate_named_matches(const struct cly_dir * directory,
                                const char *           normalized,
                                const char *           base_name,
                                size_t                 base_length,
-                               struct cli_match *     matches)
+                               struct cly_match *     matches)
 {
-	cli_dir_assert(directory);
-	cli_assert(!normalized || !cli_path_isok(normalized));
-	cli_assert(!normalized || (normalized[strlen(normalized) - 1] == '/'));
-	cli_assert(base_name);
-	cli_assert(base_length);
-	cli_assert(base_length < CLI_PATH_NAME_MAX);
-	cli_assert(strnlen(base_name, CLI_PATH_NAME_MAX) == base_length);
-	cli_match_assert(matches);
+	cly_dir_assert(directory);
+	cly_assert(!normalized || !cly_path_isok(normalized));
+	cly_assert(!normalized || (normalized[strlen(normalized) - 1] == '/'));
+	cly_assert(base_name);
+	cly_assert(base_length);
+	cly_assert(base_length < CLY_PATH_NAME_MAX);
+	cly_assert(strnlen(base_name, CLY_PATH_NAME_MAX) == base_length);
+	cly_match_assert(matches);
 
-	enum cli_path_comp_kind kind;
+	enum cly_path_comp_kind kind;
 
-	if (cli_path_parse_comp(&kind, base_name, base_length + 1) > 0) {
-		if (kind == CLI_PATH_REG_COMP_KIND) {
-			const struct cli_dir * child;
+	if (cly_path_parse_comp(&kind, base_name, base_length + 1) > 0) {
+		if (kind == CLY_PATH_REG_COMP_KIND) {
+			const struct cly_dir * child;
 
 			/*
 			 * Here, we give ownership of newly allocated directory
 			 * name to `matches'.
 			 * Allocated string ownership will be transfered from
-			 * `matches' to readline(3) by cli_shell_complete().
+			 * `matches' to readline(3) by cly_shell_complete().
 			 * Readline(3) will free(3) it at completion process
 			 * termination time.
 			 */
-			if (cli_dir_has_child(directory)) {
-				cli_dir_foreach_child(directory, child) {
+			if (cly_dir_has_child(directory)) {
+				cly_dir_foreach_child(directory, child) {
 					if (!strncmp(base_name,
 					             child->name,
 					             base_length))
-						cli_dir_join_push_match(
+						cly_dir_join_push_match(
 							matches,
 							normalized ? normalized
 							           : "",
 							           child->name);
 				}
-				cli_shell_suppress_complete_char();
+				cly_shell_suppress_complete_char();
 			}
 			else if (normalized)
-				cli_dir_push_match(matches, normalized);
+				cly_dir_push_match(matches, normalized);
 		}
 		else {
-			cli_dir_join_push_match(matches,
+			cly_dir_join_push_match(matches,
 			                        normalized ? normalized : "",
 			                        "..");
-			cli_shell_suppress_complete_char();
+			cly_shell_suppress_complete_char();
 		}
 	}
 }
 
 static ssize_t
-cli_dir_searchn_normalize(const struct cli_dir **     directory,
+cly_dir_searchn_normalize(const struct cly_dir **     directory,
                           const char *                path,
                           char **                     normalized,
-                          const struct  cli_context * context)
+                          const struct  cly_context * context)
 {
-	cli_assert(directory);
-	cli_dir_assert(*directory);
-	cli_assert(path);
-	cli_assert(normalized);
-	cli_assert_context(context);
+	cly_assert(directory);
+	cly_dir_assert(*directory);
+	cly_assert(path);
+	cly_assert(normalized);
+	cly_assert_context(context);
 
-	struct cli_path        pth;
+	struct cly_path        pth;
 	int                    ret;
 	char *                 norm;
 	ssize_t                len;
-	const struct cli_dir * dir = *directory;
+	const struct cly_dir * dir = *directory;
 
-	cli_path_init(&pth);
+	cly_path_init(&pth);
 
-	ret = cli_path_parse(&pth, path);
+	ret = cly_path_parse(&pth, path);
 	if (ret)
 		goto fini;
 
-	norm = cli_malloc(CLI_PATH_MAX);
-	cli_assert(norm);
+	norm = cly_malloc(CLY_PATH_MAX);
+	cly_assert(norm);
 
 	if (path[0] != '/')
-		len = cli_path_mkrel(&pth, norm, CLI_PATH_MAX - 1);
+		len = cly_path_mkrel(&pth, norm, CLY_PATH_MAX - 1);
 	else
-		len = cli_path_mkabs(&pth, norm, CLI_PATH_MAX - 1);
+		len = cly_path_mkabs(&pth, norm, CLY_PATH_MAX - 1);
 
-	cli_assert(len >= 0);
-	cli_assert((len + 1) < CLI_PATH_MAX);
+	cly_assert(len >= 0);
+	cly_assert((len + 1) < CLY_PATH_MAX);
 	if (len) {
 		if (norm[len - 1] != '/') {
 			norm[len++] = '/';
@@ -1127,17 +1136,17 @@ cli_dir_searchn_normalize(const struct cli_dir **     directory,
 		if (norm[0] == '/')
 			dir = &context->root;
 
-		ret = cli_dir_search_from_path(&dir, &pth);
+		ret = cly_dir_search_from_path(&dir, &pth);
 		if (ret)
 			/* Directory not found: no match. */
 			goto free;
 	}
 	else {
-		cli_free(norm);
+		cly_free(norm);
 		norm = NULL;
 	}
 
-	cli_path_fini(&pth);
+	cly_path_fini(&pth);
 
 	*directory = dir;
 	*normalized = norm;
@@ -1145,20 +1154,20 @@ cli_dir_searchn_normalize(const struct cli_dir **     directory,
 	return len;
 
 free:
-	cli_free(norm);
+	cly_free(norm);
 fini:
-	cli_path_fini(&pth);
+	cly_path_fini(&pth);
 
 	return ret;
 }
 
 static bool
-cli_dir_work_already_completed(int argc, const char * const argv[])
+cly_dir_work_already_completed(int argc, const char * const argv[])
 {
 	int a;
 
 	for (a = 0; a < argc; a++) {
-		if (!cli_path_isok(argv[a]))
+		if (!cly_path_isok(argv[a]))
 			return true;
 	}
 
@@ -1166,15 +1175,15 @@ cli_dir_work_already_completed(int argc, const char * const argv[])
 }
 
 static void
-_cli_dir_work_complete_arg(struct cli_context * context,
+_cly_dir_work_complete_arg(struct cly_context * context,
                            const char *         word,
                            size_t               length,
-                           struct cli_match *   matches)
+                           struct cly_match *   matches)
 {
-	cli_assert_context(context);
-	cli_match_assert(matches);
+	cly_assert_context(context);
+	cly_match_assert(matches);
 
-	const struct cli_dir * pdir = cli_cwd(context);
+	const struct cly_dir * pdir = cly_cwd(context);
 
 	if (length) {
 		/* Base name of requested path. */
@@ -1186,7 +1195,7 @@ _cli_dir_work_complete_arg(struct cli_context * context,
 		/* Normalized directory name of requested path. */
 		char *       norm = NULL;
 
-		if (length >= CLI_PATH_MAX)
+		if (length >= CLY_PATH_MAX)
 			return;
 
 		/* Compute required base name. */
@@ -1194,7 +1203,7 @@ _cli_dir_work_complete_arg(struct cli_context * context,
 		while ((bname > word) && (bname[-1] != '/'))
 		       bname--;
 		blen = &word[length] - bname;
-		cli_assert(bname[blen] == '\0');
+		cly_assert(bname[blen] == '\0');
 
 		dlen = (ssize_t)(length - blen);
 		if (dlen) {
@@ -1204,58 +1213,58 @@ _cli_dir_work_complete_arg(struct cli_context * context,
 			 */
 			char * dname;
 
-			dname = cli_malloc(dlen + 1);
-			cli_assert(dname);
+			dname = cly_malloc(dlen + 1);
+			cly_assert(dname);
 			memcpy(dname, word, dlen);
 			dname[dlen] = '\0';
 
-			dlen = cli_dir_searchn_normalize(&pdir,
+			dlen = cly_dir_searchn_normalize(&pdir,
 			                                 dname,
 			                                 &norm,
 			                                 context);
 
-			cli_free(dname);
+			cly_free(dname);
 
 			if (dlen < 0)
 				return;
 
-			cli_assert((!dlen && !norm) || (dlen && norm));
+			cly_assert((!dlen && !norm) || (dlen && norm));
 		}
 
 		if (blen)
-			cli_dir_generate_named_matches(pdir,
+			cly_dir_generate_named_matches(pdir,
 			                               norm,
 			                               bname,
 			                               blen,
 			                               matches);
 		else
-			cli_dir_generate_matches(pdir, norm, matches);
+			cly_dir_generate_matches(pdir, norm, matches);
 
 		/* free(3) handles NULL arguments properly... */
-		cli_free(norm);
+		cly_free(norm);
 	}
 	else
-		cli_dir_generate_matches(pdir, NULL, matches);
+		cly_dir_generate_matches(pdir, NULL, matches);
 
 	rl_filename_completion_desired = 1;
 }
 
 static void
-cli_dir_work_complete_arg(const struct cli_arg * argument __cli_unused,
-                          const struct cli_cmd * command __cli_unused,
-                          const struct cli_dir * directory __cli_unused,
-                          struct cli_context *   context,
+cly_dir_work_complete_arg(const struct cly_arg * argument __unused,
+                          const struct cly_cmd * command __unused,
+                          const struct cly_dir * directory __unused,
+                          struct cly_context *   context,
                           const char *           word,
                           size_t                 length,
                           int                    argc,
                           const char * const     argv[],
-                          struct cli_match *     matches)
+                          struct cly_match *     matches)
 {
-	cli_arg_assert(argument);
-	cli_cmd_assert(command);
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_match_assert(matches);
+	cly_arg_assert(argument);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_match_assert(matches);
 
 	/*
 	 * Generate possible completion pathes only when a path has not been
@@ -1263,38 +1272,38 @@ cli_dir_work_complete_arg(const struct cli_arg * argument __cli_unused,
 	 * In other words, a path completion may only be performed once for the
 	 * current command line.
 	 */
-	if (!cli_dir_work_already_completed(argc, argv))
-		_cli_dir_work_complete_arg(context, word, length, matches);
+	if (!cly_dir_work_already_completed(argc, argv))
+		_cly_dir_work_complete_arg(context, word, length, matches);
 }
 
-static const struct cli_arg_ops cli_dir_work_arg_ops = {
-	.parse    = cli_dir_work_parse_arg,
-	.complete = cli_dir_work_complete_arg
+static const struct cly_arg_ops cly_dir_work_arg_ops = {
+	.parse    = cly_dir_work_parse_arg,
+	.complete = cly_dir_work_complete_arg
 };
 
-struct cli_dir_work_arg *
-cli_dir_work_create_arg(bool mandatory)
+struct cly_dir_work_arg *
+cly_dir_work_create_arg(bool mandatory)
 {
-	struct cli_dir_work_arg * arg;
+	struct cly_dir_work_arg * arg;
 
-	arg = (struct cli_dir_work_arg *)
-	      cli_arg_create(sizeof(*arg), &cli_dir_work_arg_ops);
-	cli_assert(arg);
+	arg = (struct cly_dir_work_arg *)
+	      cly_arg_create(sizeof(*arg), &cly_dir_work_arg_ops);
+	cly_assert(arg);
 
 	arg->mand = mandatory;
 
 	return arg;
 }
 
-struct cli_dir_work_arg *
-cli_dir_work_createn_add_arg(bool mandatory, struct cli_node * cmd_or_arg)
+struct cly_dir_work_arg *
+cly_dir_work_createn_add_arg(bool mandatory, struct cly_node * cmd_or_arg)
 {
-	struct cli_dir_work_arg * arg;
+	struct cly_dir_work_arg * arg;
 
-	arg = cli_dir_work_create_arg(mandatory);
-	cli_assert(arg);
+	arg = cly_dir_work_create_arg(mandatory);
+	cly_assert(arg);
 
-	cli_node_add_child(cmd_or_arg, (struct cli_node *)arg);
+	cly_node_add_child(cmd_or_arg, (struct cly_node *)arg);
 
 	return arg;
 }

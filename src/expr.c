@@ -6,19 +6,19 @@
  ******************************************************************************/
 
 static ssize_t
-cli_expr_unquote_arg(char ** argument, size_t length)
+cly_expr_unquote_arg(char ** argument, size_t length)
 {
-	cli_assert(argument);
-	cli_assert(*argument);
-	cli_assert(length);
-	cli_assert(strnlen(*argument, CLI_ARG_MAX) == length);
+	cly_assert(argument);
+	cly_assert(*argument);
+	cly_assert(length);
+	cly_assert(strnlen(*argument, CLY_ARG_MAX) == length);
 
 	char * arg = *argument;
 	
 	if ((arg[0] != '"') && (arg[0] != '\''))
 		return (ssize_t)length;
 
-	cli_assert(arg[length - 1] == arg[0]);
+	cly_assert(arg[length - 1] == arg[0]);
 	arg[length - 1] = '\0';
 	*argument = &arg[1];
 
@@ -29,37 +29,37 @@ cli_expr_unquote_arg(char ** argument, size_t length)
  * Base command line expression handling.
  ******************************************************************************/
 
-#define CLI_EXPR_ARGS_INIT (4U)
+#define CLY_EXPR_ARGS_INIT (4U)
 
 static int
-cli_expr_push_arg(struct cli_expr * expression,
+cly_expr_push_arg(struct cly_expr * expression,
                   char *            argument,
                   size_t            length)
 {
-	cli_expr_assert(expression);
-	cli_assert(argument);
-	cli_assert(length);
+	cly_expr_assert(expression);
+	cly_assert(argument);
+	cly_assert(length);
 
 	char * arg;
 	size_t inval;
-	char   rnd[CLI_RENDER_MAX];
+	char   rnd[CLY_RENDER_MAX];
 
-	if (length >= CLI_ARG_MAX) {
-		cli_log("cannot parse: '%s': expression argument too long.",
-		        cli_render_string(argument, rnd));
+	if (length >= CLY_ARG_MAX) {
+		cly_log("cannot parse: '%s': expression argument too long.",
+		        cly_render_string(argument, rnd));
 		return -ENAMETOOLONG;
 	}
 
-	cli_assert(strnlen(argument, CLI_ARG_MAX) == length);
+	cly_assert(strnlen(argument, CLY_ARG_MAX) == length);
 
 	arg = argument;
-	length = cli_expr_unquote_arg(&arg, length);
-	inval = _cli_arg_isstr_valid(arg, length);
+	length = cly_expr_unquote_arg(&arg, length);
+	inval = _cly_arg_isstr_valid(arg, length);
 	if (inval) {
-		cli_log("cannot parse: '%s': "
+		cly_log("cannot parse: '%s': "
 		        "invalid expression argument character '%c'.",
-		        cli_render_string(arg, rnd),
-		        cli_render_chr(arg[inval]));
+		        cly_render_string(arg, rnd),
+		        cly_render_chr(arg[inval]));
 
 		return -EINVAL;
 	}
@@ -67,13 +67,13 @@ cli_expr_push_arg(struct cli_expr * expression,
 	if (expression->cnt == expression->nr) {
 		unsigned int nr = expression->nr * 2;
 
-		if (nr >= CLI_EXPR_ARGS_MAX) {
-			cli_log("cannot parse: too many expression arguments.");
+		if (nr >= CLY_EXPR_ARGS_MAX) {
+			cly_log("cannot parse: too many expression arguments.");
 			return -ENOBUFS;
 		}
 
 		expression->nr = nr;
-		expression->args = cli_realloc(expression->args,
+		expression->args = cly_realloc(expression->args,
 		                               nr * sizeof(argument));
 	}
 
@@ -83,13 +83,13 @@ cli_expr_push_arg(struct cli_expr * expression,
 }
 
 int
-cli_expr_parse_string(struct cli_expr * expression, char * string)
+cly_expr_parse_string(struct cly_expr * expression, char * string)
 {
-	cli_expr_assert(expression);
-	cli_assert(string);
-	cli_assert(*string != '\0');
-	cli_assert(strnlen(string, CLI_LINE_MAX) < CLI_LINE_MAX);
-	cli_assert(!strchr(string, '\n'));
+	cly_expr_assert(expression);
+	cly_assert(string);
+	cly_assert(*string != '\0');
+	cly_assert(strnlen(string, CLY_LINE_MAX) < CLY_LINE_MAX);
+	cly_assert(!strchr(string, '\n'));
 
 	char * str = string;
 	int    ret;
@@ -109,11 +109,11 @@ cli_expr_parse_string(struct cli_expr * expression, char * string)
 
 			delim = strchr(str + 1, *str);
 			if (!delim) {
-				char rnd[CLI_RENDER_MAX];
+				char rnd[CLY_RENDER_MAX];
 
-				cli_log("cannot parse: '%s': "
+				cly_log("cannot parse: '%s': "
 				        "missing '%c' closing delimiter.",
-				        cli_render_string(str, rnd),
+				        cly_render_string(str, rnd),
 				        *str);
 				return -EINVAL;
 			}
@@ -125,14 +125,14 @@ cli_expr_parse_string(struct cli_expr * expression, char * string)
 		case ' ':
 		case '\t':
 			*str = '\0';
-			ret = cli_expr_push_arg(expression, tok, str - tok);
+			ret = cly_expr_push_arg(expression, tok, str - tok);
 			if (ret)
 				return ret;
 			str++;
 			break;
 
 		case '\0':
-			return cli_expr_push_arg(expression, tok, str - tok);
+			return cly_expr_push_arg(expression, tok, str - tok);
 
 		default:
 			return -EINVAL;
@@ -145,20 +145,20 @@ cli_expr_parse_string(struct cli_expr * expression, char * string)
 #if 0
 /* Keep this just in case we need to save parsed line into history. */
 static ssize_t
-cli_expr_make_string(const struct cli_expr * expression,
+cly_expr_make_string(const struct cly_expr * expression,
                      char *                  string,
                      size_t                  size)
 {
-	cli_expr_assert(expression);
-	cli_assert(string);
-	cli_assert(size);
-	cli_assert(size <= SSIZE_MAX);
+	cly_expr_assert(expression);
+	cly_assert(string);
+	cly_assert(size);
+	cly_assert(size <= SSIZE_MAX);
 
 	ssize_t      tlen; /* Total length. */
 	unsigned int a;
 
 	tlen = strlen(expression->args[0]);
-	cli_assert(tlen < CLI_ARG_MAX);
+	cly_assert(tlen < CLY_ARG_MAX);
 	if ((size_t)tlen >= size)
 		return -ENOBUFS;
 	memcpy(string, expression->args[0], tlen);
@@ -168,7 +168,7 @@ cli_expr_make_string(const struct cli_expr * expression,
 		size_t       alen;                      /* Argument length. */
 
 		alen = strlen(arg);
-		cli_assert(alen < CLI_ARG_MAX);
+		cly_assert(alen < CLY_ARG_MAX);
 		if (((size_t)tlen + 1 + alen) >= size)
 			return -ENOBUFS;
 
@@ -176,7 +176,7 @@ cli_expr_make_string(const struct cli_expr * expression,
 		memcpy(&string[tlen], arg, alen);
 
 		tlen += alen;
-		cli_assert((size_t)tlen < size);
+		cly_assert((size_t)tlen < size);
 	}
 
 	string[tlen] = '\0';
@@ -186,64 +186,64 @@ cli_expr_make_string(const struct cli_expr * expression,
 #endif
 
 void
-cli_expr_init(struct cli_expr * expression)
+cly_expr_init(struct cly_expr * expression)
 {
-	cli_assert(expression);
+	cly_assert(expression);
 
 	expression->next = NULL;
 	expression->cnt = 0;
-	expression->nr = CLI_EXPR_ARGS_INIT;
-	expression->args = cli_malloc(CLI_EXPR_ARGS_INIT *
+	expression->nr = CLY_EXPR_ARGS_INIT;
+	expression->args = cly_malloc(CLY_EXPR_ARGS_INIT *
 	                              sizeof(expression->args[0]));
-	cli_assert(expression->args);
+	cly_assert(expression->args);
 }
 
-static struct cli_expr *
-cli_expr_create(void)
+static struct cly_expr *
+cly_expr_create(void)
 {
-	struct cli_expr * expr;
+	struct cly_expr * expr;
 
-	expr = cli_malloc(sizeof(*expr));
-	cli_assert(expr);
+	expr = cly_malloc(sizeof(*expr));
+	cly_assert(expr);
 
-	cli_expr_init(expr);
+	cly_expr_init(expr);
 
 	return expr;
 }
 
 void
-cli_expr_fini(struct cli_expr * expression)
+cly_expr_fini(struct cly_expr * expression)
 {
-	cli_expr_assert(expression);
+	cly_expr_assert(expression);
 
-	cli_free(expression->args);
+	cly_free(expression->args);
 }
 
 static void
-cli_expr_destroy(struct cli_expr * expression)
+cly_expr_destroy(struct cly_expr * expression)
 {
-	cli_expr_assert(expression);
+	cly_expr_assert(expression);
 
-	cli_expr_fini(expression);
+	cly_expr_fini(expression);
 
-	cli_free(expression);
+	cly_free(expression);
 }
 
 static int
-cli_expr_createn_parse(struct cli_expr ** expression, char * string)
+cly_expr_createn_parse(struct cly_expr ** expression, char * string)
 {
-	cli_assert(expression);
-	cli_assert(string);
+	cly_assert(expression);
+	cly_assert(string);
 
-	struct cli_expr * expr;
+	struct cly_expr * expr;
 	int               ret;
 
-	expr = cli_expr_create();
-	cli_assert(expr);
+	expr = cly_expr_create();
+	cly_assert(expr);
 
-	ret = cli_expr_parse_string(expr, string);
+	ret = cly_expr_parse_string(expr, string);
 	if (ret) {
-		cli_expr_destroy(expr);
+		cly_expr_destroy(expr);
 		return ret;
 	}
 
@@ -257,12 +257,12 @@ cli_expr_createn_parse(struct cli_expr ** expression, char * string)
  ******************************************************************************/
 
 static void
-cli_expr_blk_push(struct cli_expr_blk * block, struct cli_expr * expression)
+cly_expr_blk_push(struct cly_expr_blk * block, struct cly_expr * expression)
 {
-	cli_expr_blk_assert(block);
-	cli_expr_assert(expression);
-	cli_assert(!expression->next);
-	cli_assert(block->cnt < CLI_EXPR_BLK_MAX);
+	cly_expr_blk_assert(block);
+	cly_expr_assert(expression);
+	cly_assert(!expression->next);
+	cly_assert(block->cnt < CLY_EXPR_BLK_MAX);
 
 	block->cnt++;
 	*block->tail = expression;
@@ -270,40 +270,40 @@ cli_expr_blk_push(struct cli_expr_blk * block, struct cli_expr * expression)
 }
 
 int
-cli_expr_blk_parse_line(struct cli_expr_blk * block, char * line)
+cly_expr_blk_parse_line(struct cly_expr_blk * block, char * line)
 {
-	cli_expr_blk_assert(block);
-	cli_assert(!block->line);
-	cli_assert(line);
-	cli_assert(*line != '\0');
-	cli_assert(strnlen(line, CLI_LINE_MAX) < CLI_LINE_MAX);
-	cli_assert(!strchr(line, '\n'));
+	cly_expr_blk_assert(block);
+	cly_assert(!block->line);
+	cly_assert(line);
+	cly_assert(*line != '\0');
+	cly_assert(strnlen(line, CLY_LINE_MAX) < CLY_LINE_MAX);
+	cly_assert(!strchr(line, '\n'));
 
 	char * ln = line;
 
 	do {
 		char *            str;
-		struct cli_expr * expr;
+		struct cly_expr * expr;
 		int               ret;
 
 		ln += strspn(ln, " \t;");
 		if (*ln == '\0')
 			break;
 
-		if (block->cnt == CLI_EXPR_BLK_MAX) {
-			cli_log("cannot parse: too many expressions.");
+		if (block->cnt == CLY_EXPR_BLK_MAX) {
+			cly_log("cannot parse: too many expressions.");
 			return -ENOBUFS;
 		}
 
 		str = strsep(&ln, ";");
-		cli_assert(str);
-		cli_assert(*str != '\0');
+		cly_assert(str);
+		cly_assert(*str != '\0');
 
-		ret = cli_expr_createn_parse(&expr, str);
+		ret = cly_expr_createn_parse(&expr, str);
 		if (ret)
 			return ret;
 
-		cli_expr_blk_push(block, expr);
+		cly_expr_blk_push(block, expr);
 	} while (ln);
 
 	if (!block->cnt)
@@ -317,26 +317,26 @@ cli_expr_blk_parse_line(struct cli_expr_blk * block, char * line)
 #if 0
 /* Keep this just in case we need to save parsed line into history. */
 ssize_t
-cli_expr_blk_make_string(const struct cli_expr_blk * block,
+cly_expr_blk_make_string(const struct cly_expr_blk * block,
                          char *                      string,
                          size_t                      size)
 {
-	cli_expr_blk_assert(block);
-	cli_assert(block->cnt);
-	cli_assert(string);
-	cli_assert(size);
-	cli_assert(size <= SSIZE_MAX);
+	cly_expr_blk_assert(block);
+	cly_assert(block->cnt);
+	cly_assert(string);
+	cly_assert(size);
+	cly_assert(size <= SSIZE_MAX);
 
-	const struct cli_expr * expr = block->head;
+	const struct cly_expr * expr = block->head;
 	ssize_t                 len = 0;
 
-	len = cli_expr_make_string(expr, string, size);
-	cli_assert(len);
+	len = cly_expr_make_string(expr, string, size);
+	cly_assert(len);
 	if (len < 0)
 		return len;
 
 	for (expr = expr->next; expr; expr = expr->next) {
-		cli_assert((size_t)len < size);
+		cly_assert((size_t)len < size);
 
 		ssize_t ret;
 
@@ -350,24 +350,24 @@ cli_expr_blk_make_string(const struct cli_expr_blk * block,
 		string[len++] = ';';
 		string[len++] = ' ';
 
-		ret = cli_expr_make_string(expr, &string[len], size - len);
-		cli_assert(ret);
+		ret = cly_expr_make_string(expr, &string[len], size - len);
+		cly_assert(ret);
 		if (ret < 0)
 			return ret;
 
 		len += ret;
 	}
 
-	cli_assert(string[len] == '\0');
+	cly_assert(string[len] == '\0');
 
 	return len;
 }
 #endif
 
 void
-cli_expr_blk_init(struct cli_expr_blk * block)
+cly_expr_blk_init(struct cly_expr_blk * block)
 {
-	cli_assert(block);
+	cly_assert(block);
 
 	block->cnt = 0;
 	block->head = NULL;
@@ -376,15 +376,15 @@ cli_expr_blk_init(struct cli_expr_blk * block)
 }
 
 void
-cli_expr_blk_fini(struct cli_expr_blk * block)
+cly_expr_blk_fini(struct cly_expr_blk * block)
 {
-	cli_expr_blk_assert(block);
+	cly_expr_blk_assert(block);
 
-	struct cli_expr * expr;
-	struct cli_expr * tmp;
+	struct cly_expr * expr;
+	struct cly_expr * tmp;
 
-	cli_expr_blk_foreach_safe(block, expr, tmp)
-		cli_expr_destroy(expr);
+	cly_expr_blk_foreach_safe(block, expr, tmp)
+		cly_expr_destroy(expr);
 
-	cli_free(block->line);
+	cly_free(block->line);
 }

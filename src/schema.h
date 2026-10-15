@@ -1,11 +1,11 @@
-#ifndef _CLI_SCHEMA_H
-#define _CLI_SCHEMA_H
+#ifndef _CLY_SCHEMA_H
+#define _CLY_SCHEMA_H
 
 #include "common.h"
 
-struct cli_dir;
+struct cly_dir;
 
 extern void
-cli_schema_build_cmd(struct cli_dir * directory);
+cly_schema_build_cmd(struct cly_dir * directory);
 
-#endif /* _CLI_SCHEMA_H */
+#endif /* _CLY_SCHEMA_H */

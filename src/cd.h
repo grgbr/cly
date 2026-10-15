@@ -1,11 +1,11 @@
-#ifndef _CLI_CD_H
-#define _CLI_CD_H
+#ifndef _CLY_CD_H
+#define _CLY_CD_H
 
 #include "common.h"
 
-struct cli_dir;
+struct cly_dir;
 
 extern void
-cli_chdir_build_cmd(struct cli_dir * directory);
+cly_chdir_build_cmd(struct cly_dir * directory);
 
-#endif /* _CLI_CD_H */
+#endif /* _CLY_CD_H */

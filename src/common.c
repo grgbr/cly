@@ -1,109 +1,106 @@
 #include "common.h"
-#include "arg.h"
-#include <stdarg.h>
+#include <srutils/srepo/schema.h>
 
-#if defined(CONFIG_CLI_ASSERT)
+void
+cly_log_scn(const struct lysc_node * node, const char * format, ...)
+{
+	cly_assert(node);
+	cly_assert(format);
+	cly_assert(format[0]);
+
+	char * path;
+	char * fmt;
+	int    ret;
+
+	path = srepo_sch_node_path(node);
+	ret = cly_asprintf(&fmt,
+	                   "%s: [path:%s]: %s.\n",
+	                   program_invocation_short_name,
+	                   path,
+	                   format);
+	srepo_free(path);
+	if (ret > 0) {
+		va_list args;
+
+		va_start(args, format);
+		vfprintf(stderr, fmt, args);
+		va_end(args);
+
+		cly_free(fmt);
+	}
+	else
+		fprintf(stderr,
+		        "%s: logging failure: %s.\n",
+		        program_invocation_short_name,
+		        strerror(-ret));
+}
+
+#if defined(CONFIG_CLY_ASSERT)
 
 #include "arg.h"
 #include <stdbool.h>
 
 void
-cli_assert_args(int argc, const char * const argv[])
+cly_assert_args(int argc, const char * const argv[])
 {
-	cli_assert(argc > 0);
-	cli_assert(argv);
+	cly_assert(argc > 0);
+	cly_assert(argv);
 
 	int    a;
 	size_t len;
 
 	for (a = 0, len = 0; a < argc; a++) {
-		cli_assert(argv[a]);
+		cly_assert(argv[a]);
 
-		size_t       alen = strnlen(argv[a], CLI_ARG_MAX);
+		size_t alen = strnlen(argv[a], CLY_ARG_MAX);
 
-		cli_assert(alen < CLI_ARG_MAX);
+		cly_assert(alen < CLY_ARG_MAX);
 
 		len += alen;
-		cli_assert(len < CLI_LINE_MAX);
+		cly_assert(len < CLY_LINE_MAX);
 
-		cli_assert(!_cli_arg_isstr_valid(argv[a], alen));
+		cly_assert(!_cly_arg_isstr_valid(argv[a], alen));
 	}
 }
 
-#endif /* !defined(CONFIG_CLI_ASSERT) */
+#endif /* !defined(CONFIG_CLY_ASSERT) */
 
 void *
-cli_malloc(size_t size)
+cly_realloc(void * data, size_t size)
 {
-	cli_assert(size);
-
-	void * data;
-
-	data = malloc(size);
-	if (!data)
-		abort();
-
-	return data;
-}
-
-void *
-cli_realloc(void * data, size_t size)
-{
-	cli_assert(size);
+	cly_assert(size);
 
 	data = realloc(data, size);
 	if (!data)
-		abort();
+		cly_abort();
 
 	return data;
 }
 
 char *
-cli_strdup(const char * string)
+cly_strdup(const char * string)
 {
-	cli_assert(string);
+	cly_assert(string);
 
 	char * str;
 
 	str = strdup(string);
 	if (!str)
-		abort();
+		cly_abort();
 
 	return str;
 }
 
-int
-cli_asprintf(char ** string, const char * format, ...)
-{
-	va_list args;
-	char *  str;
-	int     ret;
-
-	va_start(args, format);
-	ret = vasprintf(&str, format, args);
-	va_end(args);
-
-	if (ret >= 0) {
-		*string = str;
-		return ret;
-	}
-
-	if (errno == ENOMEM)
-		abort();
-
-	return -errno;
-}
-
 const char *
-cli_render_string(const char * input, char output[CLI_RENDER_MAX])
+cly_render_string(const char * input, char output[CLY_RENDER_MAX])
 {
-	cli_assert(output);
-	cli_assert(input);
+	cly_assert(output);
+	cly_assert(input);
 
 	const char * in = input;
 	char *       out = output;
 
-	while ((*in != '\0') && (out < &output[CLI_RENDER_MAX - 1])) {
+	while ((*in != '\0') && (out < &output[CLY_RENDER_MAX - 1])) {
 		if (isprint(*in))
 			*out = *in;
 		else

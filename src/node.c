@@ -1,120 +1,120 @@
 #include "node.h"
 
 static int
-cli_node_walk_recurs(struct cli_node *   node,
-                     cli_node_visit_fn * visit,
+cly_node_walk_recurs(struct cly_node *   node,
+                     cly_node_visit_fn * visit,
                      void *              data)
 {
-	cli_node_assert(node);
-	cli_assert(visit);
+	cly_node_assert(node);
+	cly_assert(visit);
 
 	int ret;
 
-	ret = visit(node, CLI_WALK_PRE_EVT, data);
-	if (ret == CLI_WALK_CONT_RET) {
-		struct cli_node * child;
+	ret = visit(node, CLY_PRE_WALK_EVT, data);
+	if (ret == CLY_CONT_WALK_RET) {
+		struct cly_node * child;
 
-		cli_node_foreach_child(node, child) {
-			ret = cli_node_walk_recurs(child, visit, data);
+		cly_node_foreach_child(node, child) {
+			ret = cly_node_walk_recurs(child, visit, data);
 			if (ret < 0)
 				return ret;
 		}
 
-		ret = visit(node, CLI_WALK_POST_EVT, data);
-		cli_assert(ret <= 0);
+		ret = visit(node, CLY_POST_WALK_EVT, data);
+		cly_assert(ret <= 0);
 	}
 
 	return (ret >= 0) ? 0 : ret;
 }
 
 int
-cli_node_walk_siblings(struct cli_node *   head,
-                       cli_node_visit_fn * visit,
+cly_node_walk_siblings(struct cly_node *   head,
+                       cly_node_visit_fn * visit,
                        void *              data)
 {
-	cli_assert(!head || !head->prev->next);
-	cli_assert(visit);
+	cly_assert(!head || !head->prev->next);
+	cly_assert(visit);
 
-	struct cli_node * sib;
+	struct cly_node * sib;
 	int               ret = 0;
 
-	cli_node_foreach_sibling(head, sib) {
-		ret = cli_node_walk_recurs(sib, visit, data);
+	cly_node_foreach_sibling(head, sib) {
+		ret = cly_node_walk_recurs(sib, visit, data);
 		if (ret < 0)
 			return ret;
 	}
 
-	cli_assert(!ret);
+	cly_assert(!ret);
 
 	return 0;
 }
 
 static int
-cli_node_walk_recurs_safe(struct cli_node *   node,
-                          cli_node_visit_fn * visit,
+cly_node_walk_recurs_safe(struct cly_node *   node,
+                          cly_node_visit_fn * visit,
                           void *              data)
 {
 #warning Remove recursion
-	cli_node_assert(node);
-	cli_assert(visit);
+	cly_node_assert(node);
+	cly_assert(visit);
 
 	int ret;
 
-	ret = visit(node, CLI_WALK_PRE_EVT, data);
-	if (ret == CLI_WALK_CONT_RET) {
-		struct cli_node * child;
-		struct cli_node * tmp;
+	ret = visit(node, CLY_PRE_WALK_EVT, data);
+	if (ret == CLY_CONT_WALK_RET) {
+		struct cly_node * child;
+		struct cly_node * tmp;
 
-		cli_node_foreach_child_safe(node, child, tmp) {
-			ret = cli_node_walk_recurs_safe(child, visit, data);
+		cly_node_foreach_child_safe(node, child, tmp) {
+			ret = cly_node_walk_recurs_safe(child, visit, data);
 			if (ret < 0)
 				return ret;
 		}
 
-		ret = visit(node, CLI_WALK_POST_EVT, data);
-		cli_assert(ret <= 0);
+		ret = visit(node, CLY_POST_WALK_EVT, data);
+		cly_assert(ret <= 0);
 	}
 
 	return (ret >= 0) ? 0 : ret;
 }
 
 int
-cli_node_walk_siblings_safe(struct cli_node *   head,
-                            cli_node_visit_fn * visit,
+cly_node_walk_siblings_safe(struct cly_node *   head,
+                            cly_node_visit_fn * visit,
                             void *              data)
 {
-	cli_assert(!head || !head->prev->next);
-	cli_assert(visit);
+	cly_assert(!head || !head->prev->next);
+	cly_assert(visit);
 
-	struct cli_node * sib;
-	struct cli_node * tmp;
+	struct cly_node * sib;
+	struct cly_node * tmp;
 	int               ret = 0;
 
-	cli_node_foreach_sibling_safe(head, sib, tmp) {
-		ret = cli_node_walk_recurs_safe(sib, visit, data);
+	cly_node_foreach_sibling_safe(head, sib, tmp) {
+		ret = cly_node_walk_recurs_safe(sib, visit, data);
 		if (ret < 0)
 			return ret;
 	}
 
-	cli_assert(!ret);
+	cly_assert(!ret);
 
 	return 0;
 }
 
 void
-cli_node_add_sibling(struct cli_node ** head, struct cli_node * sibling)
+cly_node_add_sibling(struct cly_node ** head, struct cly_node * sibling)
 {
-	cli_assert(head);
-	cli_assert(!(*head) || !(*head)->prev->next);
-	cli_node_assert(sibling);
-	cli_assert(!sibling->next);
-	cli_assert(sibling->prev == sibling);
-	cli_assert(!sibling->parent);
+	cly_assert(head);
+	cly_assert(!(*head) || !(*head)->prev->next);
+	cly_node_assert(sibling);
+	cly_assert(!sibling->next);
+	cly_assert(sibling->prev == sibling);
+	cly_assert(!sibling->parent);
 
-	struct cli_node * hd = *head;
+	struct cly_node * hd = *head;
 
 	if (hd) {
-		struct cli_node * tail = hd->prev;
+		struct cly_node * tail = hd->prev;
 
 		sibling->prev = tail;
 		tail->next = sibling;
@@ -123,13 +123,13 @@ cli_node_add_sibling(struct cli_node ** head, struct cli_node * sibling)
 	else
 		*head = sibling;
 
-	sibling->parent = cli_containerof(head, struct cli_node, child);
+	sibling->parent = containerof(head, struct cly_node, child);
 }
 
 void
-cli_node_setup(struct cli_node * node)
+cly_node_setup(struct cly_node * node)
 {
-	cli_assert(node);
+	cly_assert(node);
 
 	node->next = NULL;
 	node->prev = node;
@@ -137,22 +137,22 @@ cli_node_setup(struct cli_node * node)
 	node->parent = NULL;
 }
 
-struct cli_node *
-cli_node_create(size_t size)
+struct cly_node *
+cly_node_create(size_t size)
 {
-	cli_assert(size >= sizeof(struct cli_node));
+	cly_assert(size >= sizeof(struct cly_node));
 
-	struct cli_node * node;
+	struct cly_node * node;
 
-	node = cli_malloc(size);
-	cli_assert(node);
-	cli_node_setup(node);
+	node = cly_malloc(size);
+	cly_assert(node);
+	cly_node_setup(node);
 
 	return node;
 }
 
 void
-cli_node_destroy(struct cli_node * node)
+cly_node_destroy(struct cly_node * node)
 {
-	cli_free(node);
+	cly_free(node);
 }

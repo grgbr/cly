@@ -2,14 +2,14 @@
 #include "shell.h"
 #include "cmd.h"
 #include "dir.h"
-#include "cli.h"
+#include "cly.h"
 #include <string.h>
 
 /******************************************************************************
  * Argument utilities
  ******************************************************************************/
 
-static const char cli_arg_valid_chrs[] = "abcdefghijklmnopqrstuvwxyz"
+static const char cly_arg_valid_chrs[] = "abcdefghijklmnopqrstuvwxyz"
                                          "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                          "0123456789"
                                          " /-_.=,:@";
@@ -17,23 +17,23 @@ static const char cli_arg_valid_chrs[] = "abcdefghijklmnopqrstuvwxyz"
 #if 0
 /* Keep this just in case we would need it. */
 static bool
-cli_arg_ischr_valid(int chr)
+cly_arg_ischr_valid(int chr)
 {
-	return !!memchr(cli_arg_valid_chrs,
+	return !!memchr(cly_arg_valid_chrs,
 	                chr,
-	                sizeof(cli_arg_valid_chrs) - 1);
+	                sizeof(cly_arg_valid_chrs) - 1);
 }
 #endif
 
 size_t
-_cli_arg_isstr_valid(const char * string, size_t length)
+_cly_arg_isstr_valid(const char * string, size_t length)
 {
-	cli_assert(string);
-	cli_assert(length);
-	cli_assert(length < CLI_ARG_MAX);
-	cli_assert(strnlen(string, length) == length);
+	cly_assert(string);
+	cly_assert(length);
+	cly_assert(length < CLY_ARG_MAX);
+	cly_assert(strnlen(string, length) == length);
 
-	size_t len = strspn(string, cli_arg_valid_chrs);
+	size_t len = strspn(string, cly_arg_valid_chrs);
 
 	return (string[len] == '\0') ? 0 : len;
 }
@@ -42,33 +42,33 @@ _cli_arg_isstr_valid(const char * string, size_t length)
  * Base argument handling
  ******************************************************************************/
 
-#define cli_arg_foreach_child(_arg, _child) \
-	for (_child = (const struct cli_arg *)((_arg)->super.child); \
+#define cly_arg_foreach_child(_arg, _child) \
+	for (_child = (const struct cly_arg *)((_arg)->super.child); \
 	     _child; \
-	     _child = (const struct cli_arg *)((_child)->super.next))
+	     _child = (const struct cly_arg *)((_child)->super.next))
 
 static void
-cli_arg_setup(struct cli_arg * argument, const struct cli_arg_ops * opers)
+cly_arg_setup(struct cly_arg * argument, const struct cly_arg_ops * opers)
 {
-	cli_assert(argument);
-	cli_arg_assert_ops(opers);
+	cly_assert(argument);
+	cly_arg_assert_ops(opers);
 
-	cli_node_setup(&argument->super);
+	cly_node_setup(&argument->super);
 	argument->ops = opers;
 }
 
-struct cli_arg *
-cli_arg_create(size_t size, const struct cli_arg_ops * opers)
+struct cly_arg *
+cly_arg_create(size_t size, const struct cly_arg_ops * opers)
 {
-	cli_assert(size >= sizeof(struct cli_arg));
-	cli_arg_assert_ops(opers);
+	cly_assert(size >= sizeof(struct cly_arg));
+	cly_arg_assert_ops(opers);
 
-	struct cli_arg * arg;
+	struct cly_arg * arg;
 
-	arg = cli_malloc(size);
-	cli_assert(arg);
+	arg = cly_malloc(size);
+	cly_assert(arg);
 
-	cli_arg_setup(arg, opers);
+	cly_arg_setup(arg, opers);
 
 	return arg;
 }
@@ -77,32 +77,32 @@ cli_arg_create(size_t size, const struct cli_arg_ops * opers)
  * Parameter argument handling
  ******************************************************************************/
 
-#define cli_arg_assert_parm(_parm) \
-	cli_assert(_parm); \
-	cli_arg_assert(&(_parm)->super); \
-	cli_assert((_parm)->name); \
-	cli_assert((_parm)->len); \
-	cli_assert((_parm)->len < CLI_ARG_MAX); \
-	cli_assert(strnlen((_parm)->name, CLI_ARG_MAX) == (_parm)->len)
+#define cly_arg_assert_parm(_parm) \
+	cly_assert(_parm); \
+	cly_arg_assert(&(_parm)->super); \
+	cly_assert((_parm)->name); \
+	cly_assert((_parm)->len); \
+	cly_assert((_parm)->len < CLY_ARG_MAX); \
+	cly_assert(strnlen((_parm)->name, CLY_ARG_MAX) == (_parm)->len)
 
 static int
-cli_arg_setup_parm(struct cli_arg_parm *      parameter,
+cly_arg_setup_parm(struct cly_arg_parm *      parameter,
                    const char *               name,
-                   const struct cli_arg_ops * opers)
+                   const struct cly_arg_ops * opers)
 {
-	cli_assert(parameter);
-	cli_assert(name);
-	cli_arg_assert_ops(opers);
+	cly_assert(parameter);
+	cly_assert(name);
+	cly_arg_assert_ops(opers);
 
 	size_t len;
 
-	len = strnlen(name, CLI_ARG_MAX);
+	len = strnlen(name, CLY_ARG_MAX);
 	if (!len)
 		return -ENODATA;
-	if (len == CLI_ARG_MAX)
+	if (len == CLY_ARG_MAX)
 		return -ENAMETOOLONG;
 
-	cli_arg_setup(&parameter->super, opers);
+	cly_arg_setup(&parameter->super, opers);
 	parameter->name = name;
 	parameter->len = len;
 
@@ -110,27 +110,27 @@ cli_arg_setup_parm(struct cli_arg_parm *      parameter,
 }
 
 int
-cli_arg_create_parm(struct cli_arg_parm **     parameter,
+cly_arg_create_parm(struct cly_arg_parm **     parameter,
                     const char *               name,
-                    const struct cli_arg_ops * opers)
+                    const struct cly_arg_ops * opers)
 {
-	cli_assert(parameter);
-	cli_assert(name);
-	cli_arg_assert_ops(opers);
+	cly_assert(parameter);
+	cly_assert(name);
+	cly_arg_assert_ops(opers);
 
-	struct cli_arg_parm * parm;
+	struct cly_arg_parm * parm;
 	int                   ret;
 
-	parm = cli_malloc(sizeof(*parm));
-	cli_assert(parm);
+	parm = cly_malloc(sizeof(*parm));
+	cly_assert(parm);
 
-	ret = cli_arg_setup_parm(parm, name, opers);
+	ret = cly_arg_setup_parm(parm, name, opers);
 	if (!ret) {
 		*parameter = parm;
 		return 0;
 	}
 
-	cli_free(parm);
+	cly_free(parm);
 
 	return ret;
 }
@@ -140,65 +140,65 @@ cli_arg_create_parm(struct cli_arg_parm **     parameter,
  ******************************************************************************/
 
 static int
-cli_arg_parse_choice(const struct cli_arg * choice,
-                     const struct cli_cmd * command,
-                     const struct cli_dir * directory,
-                     struct cli_context *   context,
+cly_arg_parse_choice(const struct cly_arg * choice,
+                     const struct cly_cmd * command,
+                     const struct cly_dir * directory,
+                     struct cly_context *   context,
                      int                    argc,
                      const char * const     argv[],
                      void *                 data)
 {
-	cli_arg_assert(choice);
-	cli_cmd_assert(command);
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_assert(argc >= 1);
-	cli_assert(argv[0]);
-	cli_assert(strnlen(argv[0], CLI_ARG_MAX) < CLI_ARG_MAX);
+	cly_arg_assert(choice);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(argc >= 1);
+	cly_assert(argv[0]);
+	cly_assert(strnlen(argv[0], CLY_ARG_MAX) < CLY_ARG_MAX);
 
-	const struct cli_node * opt;
+	const struct cly_node * opt;
 
-	cli_node_foreach_child(&choice->super, opt) {
+	cly_node_foreach_child(&choice->super, opt) {
 		int ret;
 
-		ret = cli_arg_parse((const struct cli_arg *)opt,
+		ret = cly_arg_parse((const struct cly_arg *)opt,
 		                    command,
 		                    directory,
 		                    context,
 		                    1,
 		                    &argv[0],
 		                    data);
-		cli_assert(ret <= 1);
+		cly_assert(ret <= 1);
 		if (ret)
 			return ret;
 	}
 
-	cli_cmd_log(command, "'%s': invalid argument.", argv[0]);
+	cly_cmd_log(command, "'%s': invalid argument.", argv[0]);
 
 	return -EINVAL;
 }
 
 static void
-cli_arg_complete_choice(const struct cli_arg * choice,
-                        const struct cli_cmd * command,
-                        const struct cli_dir * directory,
-                        struct cli_context *   context,
+cly_arg_complete_choice(const struct cly_arg * choice,
+                        const struct cly_cmd * command,
+                        const struct cly_dir * directory,
+                        struct cly_context *   context,
                         const char *           word,
                         size_t                 length,
                         int                    argc,
                         const char * const     argv[],
-                        struct cli_match *     matches)
+                        struct cly_match *     matches)
 {
-	cli_arg_assert(choice);
-	cli_cmd_assert(command);
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_match_assert(matches);
+	cly_arg_assert(choice);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_match_assert(matches);
 
-	const struct cli_node * opt;
+	const struct cly_node * opt;
 
-	cli_node_foreach_child(&choice->super, opt)
-		cli_arg_complete((const struct cli_arg *)opt,
+	cly_node_foreach_child(&choice->super, opt)
+		cly_arg_complete((const struct cly_arg *)opt,
 		                 command,
 		                 directory,
 		                 context,
@@ -209,27 +209,27 @@ cli_arg_complete_choice(const struct cli_arg * choice,
 		                 matches);
 }
 
-static const struct cli_arg_ops cli_arg_choice_ops = {
-	.parse    = cli_arg_parse_choice,
-	.complete = cli_arg_complete_choice
+static const struct cly_arg_ops cly_arg_choice_ops = {
+	.parse    = cly_arg_parse_choice,
+	.complete = cly_arg_complete_choice
 };
 
-struct cli_arg *
-cli_arg_create_choice(void)
+struct cly_arg *
+cly_arg_create_choice(void)
 {
-	return cli_arg_create(sizeof(struct cli_arg), &cli_arg_choice_ops);
+	return cly_arg_create(sizeof(struct cly_arg), &cly_arg_choice_ops);
 }
 
-struct cli_arg *
-cli_arg_createn_add_choice(struct cli_node * cmd_or_arg)
+struct cly_arg *
+cly_arg_createn_add_choice(struct cly_node * cmd_or_arg)
 {
-	cli_node_assert(cmd_or_arg);
+	cly_node_assert(cmd_or_arg);
 
-	struct cli_arg * choice;
+	struct cly_arg * choice;
 
-	choice = cli_arg_create_choice();
-	cli_assert(choice);
-	cli_node_add_child(cmd_or_arg, &choice->super);
+	choice = cly_arg_create_choice();
+	cly_assert(choice);
+	cly_node_add_child(cmd_or_arg, &choice->super);
 
 	return choice;
 }
@@ -238,48 +238,48 @@ cli_arg_createn_add_choice(struct cli_node * cmd_or_arg)
  * Keyword parameter argument handling
  ******************************************************************************/
 
-#define cli_arg_assert_kword_term(_term) \
-	cli_assert(_term); \
-	cli_assert((_term)->value); \
-	cli_assert((_term)->len); \
-	cli_assert((_term)->len < CLI_ARG_MAX); \
-	cli_assert(strnlen((_term)->value, CLI_ARG_MAX) == (_term)->len)
+#define cly_arg_assert_kword_term(_term) \
+	cly_assert(_term); \
+	cly_assert((_term)->value); \
+	cly_assert((_term)->len); \
+	cly_assert((_term)->len < CLY_ARG_MAX); \
+	cly_assert(strnlen((_term)->value, CLY_ARG_MAX) == (_term)->len)
 
-#define cli_arg_assert_kword_parm(_parm) \
-	cli_assert(_parm); \
-	cli_arg_assert_parm(&(_parm)->super); \
-	cli_assert((_parm)->nr); \
-	cli_assert(&(_parm)->super); \
-	cli_arg_assert_terms((_parm)->terms, (_parm)->nr)
+#define cly_arg_assert_kword_parm(_parm) \
+	cly_assert(_parm); \
+	cly_arg_assert_parm(&(_parm)->super); \
+	cly_assert((_parm)->nr); \
+	cly_assert(&(_parm)->super); \
+	cly_arg_assert_terms((_parm)->terms, (_parm)->nr)
 
-#if defined(CONFIG_CLI_ASSERT)
+#if defined(CONFIG_CLY_ASSERT)
 
 static void
-cli_arg_assert_terms(const struct cli_arg_kword_term * terminals,
+cly_arg_assert_terms(const struct cly_arg_kword_term * terminals,
                      unsigned int                      nr)
 {
-	cli_assert(terminals);
-	cli_assert(nr);
+	cly_assert(terminals);
+	cly_assert(nr);
 
 	unsigned int t;
 
 	for (t = 0; t < nr; t++) {
-		cli_arg_assert_kword_term(&terminals[t]);
+		cly_arg_assert_kword_term(&terminals[t]);
 	}
 }
 
-#endif /* defined(CONFIG_CLI_ASSERT) */
+#endif /* defined(CONFIG_CLY_ASSERT) */
 
 static int
-cli_arg_parse_kword_term(const struct cli_arg_kword_term * terminal,
-                         const struct cli_arg_kword_parm * parameter,
-                         const struct cli_cmd *            command,
-                         const struct cli_dir *            directory,
-                         struct cli_context *              context,
+cly_arg_parse_kword_term(const struct cly_arg_kword_term * terminal,
+                         const struct cly_arg_kword_parm * parameter,
+                         const struct cly_cmd *            command,
+                         const struct cly_dir *            directory,
+                         struct cly_context *              context,
                          const char *                      string,
                          void *                            data)
 {
-	cli_arg_assert_kword_term(terminal);
+	cly_arg_assert_kword_term(terminal);
 
 	size_t len;
 
@@ -288,7 +288,7 @@ cli_arg_parse_kword_term(const struct cli_arg_kword_term * terminal,
 	    memcmp(string, terminal->value, terminal->len))
 		return -EINVAL;
 
-	return terminal->on_match((const struct cli_arg *)parameter,
+	return terminal->on_match((const struct cly_arg *)parameter,
 	                          command,
 	                          directory,
 	                          context,
@@ -298,24 +298,24 @@ cli_arg_parse_kword_term(const struct cli_arg_kword_term * terminal,
 }
 
 static int
-cli_arg_parse_kword_parm(const struct cli_arg * argument,
-                         const struct cli_cmd * command,
-                         const struct cli_dir * directory,
-                         struct cli_context *   context,
+cly_arg_parse_kword_parm(const struct cly_arg * argument,
+                         const struct cly_cmd * command,
+                         const struct cly_dir * directory,
+                         struct cly_context *   context,
                          int                    argc,
                          const char * const     argv[],
                          void *                 data)
 {
-	cli_arg_assert_kword_parm((const struct cli_arg_kword_parm *)argument);
-	cli_cmd_assert(command);
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_assert(argc == 1);
-	cli_assert(argv[0]);
-	cli_assert(strnlen(argv[0], CLI_ARG_MAX) < CLI_ARG_MAX);
+	cly_arg_assert_kword_parm((const struct cly_arg_kword_parm *)argument);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(argc == 1);
+	cly_assert(argv[0]);
+	cly_assert(strnlen(argv[0], CLY_ARG_MAX) < CLY_ARG_MAX);
 
-	const struct cli_arg_kword_parm * parm =
-		(const struct cli_arg_kword_parm *)argument;
+	const struct cly_arg_kword_parm * parm =
+		(const struct cly_arg_kword_parm *)argument;
 	const char *                      str = argv[0];
 	size_t                            len;
 	unsigned int                      t;
@@ -328,7 +328,7 @@ cli_arg_parse_kword_parm(const struct cli_arg * argument,
 
 	str = &str[len + 1];
 	if (*str == '\0') {
-		cli_cmd_log(command,
+		cly_cmd_log(command,
 		            "'%s': missing parameter keyword.",
 		            parm->super.name);
 		return -EINVAL;
@@ -337,20 +337,20 @@ cli_arg_parse_kword_parm(const struct cli_arg * argument,
 	for (t = 0; t < parm->nr; t++) {
 		int ret;
 
-		ret = cli_arg_parse_kword_term(&parm->terms[t],
+		ret = cly_arg_parse_kword_term(&parm->terms[t],
 		                               parm,
 		                               command,
 		                               directory,
 		                               context,
 		                               str,
 		                               data);
-		cli_assert(ret <= 0);
+		cly_assert(ret <= 0);
 		if (!ret)
 			/* Matched successfully. */
 			return 1;
 	}
 
-	cli_cmd_log(command, "'%s': invalid %s parameter keyword.",
+	cly_cmd_log(command, "'%s': invalid %s parameter keyword.",
 	            str,
 	            parm->super.name);
 
@@ -358,20 +358,20 @@ cli_arg_parse_kword_parm(const struct cli_arg * argument,
 }
 
 static void
-cli_arg_display_kword_list(char ** matches,
+cly_arg_display_kword_list(char ** matches,
                            int     count,
                            int     max_length,
                            void *  data)
 {
-	cli_arg_assert_kword_parm((const struct cli_arg_kword_parm *)data);
+	cly_arg_assert_kword_parm((const struct cly_arg_kword_parm *)data);
 
 	char **                           list;
 	int                               c;
-	const struct cli_arg_kword_parm * parm =
-		(const struct cli_arg_kword_parm *)data;
+	const struct cly_arg_kword_parm * parm =
+		(const struct cly_arg_kword_parm *)data;
 
-	list = cli_malloc((count + 2) * sizeof(list[0]));
-	cli_assert(list);
+	list = cly_malloc((count + 2) * sizeof(list[0]));
+	cly_assert(list);
 
 	for (c = 0; c <= count; c++)
 		list[c] = &matches[c][parm->super.len + 1];
@@ -381,17 +381,17 @@ cli_arg_display_kword_list(char ** matches,
 	                      count,
 	                      max_length - (parm->super.len + 1));
 
-	cli_free(list);
+	cly_free(list);
 }
 
 static void
-cli_arg_complete_kword_term(const struct cli_arg_kword_term * terminal,
-                            const struct cli_arg_kword_parm * parameter,
+cly_arg_complete_kword_term(const struct cly_arg_kword_term * terminal,
+                            const struct cly_arg_kword_parm * parameter,
                             const char *                      word,
                             size_t                            length,
-                            struct cli_match *                matches)
+                            struct cly_match *                matches)
 {
-	cli_arg_assert_kword_term(terminal);
+	cly_arg_assert_kword_term(terminal);
 
 	if (!length ||
 	    ((length <= terminal->len) &&
@@ -399,30 +399,30 @@ cli_arg_complete_kword_term(const struct cli_arg_kword_term * terminal,
 		char * kw;
 		int    ret;
 
-		ret = cli_asprintf(&kw,
+		ret = cly_asprintf(&kw,
 		                   "%s=%s",
 		                   parameter->super.name,
 		                   terminal->value);
-		cli_assert((size_t)ret ==
+		cly_assert((size_t)ret ==
 		           (parameter->super.len + 1 + terminal->len));
 
 		/*
 		 * Give ownership of `kw' to `matches'. Allocated string
 		 * ownership will be transfered from `matches' to readline(3) by
-		 * cli_shell_complete().
+		 * cly_shell_complete().
 		 * Readline(3) will free(3) it at completion process termination
 		 * time.
 		 */
-		cli_match_push(matches, kw);
+		cly_match_push(matches, kw);
 	}
 }
 
 static bool
-cli_arg_kwork_already_completed(const struct cli_arg_kword_parm * parm,
+cly_arg_kwork_already_completed(const struct cly_arg_kword_parm * parm,
                                 int                               argc,
                                 const char * const                argv[])
 {
-	cli_arg_assert_kword_parm(parm);
+	cly_arg_assert_kword_parm(parm);
 
 	int a;
 
@@ -438,39 +438,39 @@ cli_arg_kwork_already_completed(const struct cli_arg_kword_parm * parm,
 }
 
 static void
-_cli_arg_complete_kword_parm(const struct cli_arg * argument,
+_cly_arg_complete_kword_parm(const struct cly_arg * argument,
                              const char *           word,
                              size_t                 length,
-                             struct cli_match *     matches)
+                             struct cly_match *     matches)
 {
-	cli_arg_assert_kword_parm((const struct cli_arg_kword_parm *)argument);
-	cli_match_assert(matches);
+	cly_arg_assert_kword_parm((const struct cly_arg_kword_parm *)argument);
+	cly_match_assert(matches);
 
-	const struct cli_arg_kword_parm * parm =
-		(const struct cli_arg_kword_parm *)argument;
+	const struct cly_arg_kword_parm * parm =
+		(const struct cly_arg_kword_parm *)argument;
 
 	if (length <= parm->super.len) {
 		if (!length || !memcmp(word, parm->super.name, length)) {
 			char * name;
 			int    ret;
 
-			ret = cli_asprintf(&name, "%s=", parm->super.name);
-			cli_assert((size_t)ret == (parm->super.len + 1));
+			ret = cly_asprintf(&name, "%s=", parm->super.name);
+			cly_assert((size_t)ret == (parm->super.len + 1));
 
 			/*
 			 * Give ownership of `name' to `matches'. Allocated
 			 * string ownership will be transfered from `matches' to
-			 * readline(3) by cli_shell_complete().
+			 * readline(3) by cly_shell_complete().
 			 * Readline(3) will free(3) it at completion process
 			 * termination time.
 			 */
-			cli_match_push(matches, name);
+			cly_match_push(matches, name);
 
 			/*
 			 * Disable appending the completion character after a
 			 * selected match.
 			 */
-			cli_shell_suppress_complete_char();
+			cly_shell_suppress_complete_char();
 		}
 	}
 	else if (!memcmp(word, parm->super.name, parm->super.len) &&
@@ -481,65 +481,65 @@ _cli_arg_complete_kword_parm(const struct cli_arg * argument,
 		length -= parm->super.len + 1;
 
 		for (t = 0; t < parm->nr; t++)
-			cli_arg_complete_kword_term(&parm->terms[t],
+			cly_arg_complete_kword_term(&parm->terms[t],
 			                            parm,
 			                            word,
 			                            length,
 			                            matches);
 
-		if (cli_match_count(matches))
-			cli_shell_enroll_display_compl(
-				cli_arg_display_kword_list,
+		if (cly_match_count(matches))
+			cly_shell_enroll_display_compl(
+				cly_arg_display_kword_list,
 				(void *)parm);
 	}
 }
 
 static void
-cli_arg_complete_kword_parm(const struct cli_arg * argument,
-                            const struct cli_cmd * command __cli_unused,
-                            const struct cli_dir * directory __cli_unused,
-                            struct cli_context *   context __cli_unused,
+cly_arg_complete_kword_parm(const struct cly_arg * argument,
+                            const struct cly_cmd * command __unused,
+                            const struct cly_dir * directory __unused,
+                            struct cly_context *   context __unused,
                             const char *           word,
                             size_t                 length,
-                            int                    argc __cli_unused,
-                            const char * const     argv[] __cli_unused,
-                            struct cli_match *     matches)
+                            int                    argc __unused,
+                            const char * const     argv[] __unused,
+                            struct cly_match *     matches)
 {
-	cli_arg_assert_kword_parm((const struct cli_arg_kword_parm *)argument);
-	cli_cmd_assert(command);
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_match_assert(matches);
+	cly_arg_assert_kword_parm((const struct cly_arg_kword_parm *)argument);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_match_assert(matches);
 
-	const struct cli_arg_kword_parm * parm =
-		(const struct cli_arg_kword_parm *)argument;
+	const struct cly_arg_kword_parm * parm =
+		(const struct cly_arg_kword_parm *)argument;
 
-	if (!cli_arg_kwork_already_completed(parm, argc, argv))
-		_cli_arg_complete_kword_parm(argument, word, length, matches);
+	if (!cly_arg_kwork_already_completed(parm, argc, argv))
+		_cly_arg_complete_kword_parm(argument, word, length, matches);
 }
 
-static const struct cli_arg_ops cli_arg_kword_parm_ops = {
-	.parse    = cli_arg_parse_kword_parm,
-	.complete = cli_arg_complete_kword_parm
+static const struct cly_arg_ops cly_arg_kword_parm_ops = {
+	.parse    = cly_arg_parse_kword_parm,
+	.complete = cly_arg_complete_kword_parm
 };
 
 int
-cli_arg_create_kword_parm(struct cli_arg_kword_parm **      parameter,
+cly_arg_create_kword_parm(struct cly_arg_kword_parm **      parameter,
                           const char *                      name,
-                          const struct cli_arg_kword_term * terminals,
+                          const struct cly_arg_kword_term * terminals,
                           unsigned int                      nr)
 {
-	cli_assert(parameter);
-	cli_assert(name);
-	cli_arg_assert_terms(terminals, nr);
+	cly_assert(parameter);
+	cly_assert(name);
+	cly_arg_assert_terms(terminals, nr);
 
-	struct cli_arg_kword_parm * parm;
+	struct cly_arg_kword_parm * parm;
 	int                         ret;
 
-	parm = cli_malloc(sizeof(*parm));
-	cli_assert(parm);
+	parm = cly_malloc(sizeof(*parm));
+	cly_assert(parm);
 
-	ret = cli_arg_setup_parm(&parm->super, name, &cli_arg_kword_parm_ops);
+	ret = cly_arg_setup_parm(&parm->super, name, &cly_arg_kword_parm_ops);
 	if (!ret) {
 		parm->nr = nr;
 		parm->terms = terminals;
@@ -548,29 +548,29 @@ cli_arg_create_kword_parm(struct cli_arg_kword_parm **      parameter,
 		return 0;
 	}
 
-	cli_free(parm);
+	cly_free(parm);
 
 	return ret;
 }
 
 int
-cli_arg_createn_add_kword_parm(struct cli_arg_kword_parm **      parameter,
+cly_arg_createn_add_kword_parm(struct cly_arg_kword_parm **      parameter,
                                const char *                      name,
-                               const struct cli_arg_kword_term * terminals,
+                               const struct cly_arg_kword_term * terminals,
                                unsigned int                      nr,
-                               struct cli_node *                 cmd_or_arg)
+                               struct cly_node *                 cmd_or_arg)
 {
-	cli_assert(parameter);
-	cli_assert(name);
-	cli_arg_assert_terms(terminals, nr);
-	cli_node_assert(cmd_or_arg);
+	cly_assert(parameter);
+	cly_assert(name);
+	cly_arg_assert_terms(terminals, nr);
+	cly_node_assert(cmd_or_arg);
 
 	int ret;
 
-	ret = cli_arg_create_kword_parm(parameter, name, terminals, nr);
+	ret = cly_arg_create_kword_parm(parameter, name, terminals, nr);
 	if (!ret) {
-		cli_node_add_child(cmd_or_arg,
-		                   *(struct cli_node **)parameter);
+		cly_node_add_child(cmd_or_arg,
+		                   *(struct cly_node **)parameter);
 		return 0;
 	}
 

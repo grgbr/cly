@@ -1,11 +1,11 @@
 ################################################################################
 # SPDX-License-Identifier: LGPL-3.0-only
 #
-# This file is part of srutils.
+# This file is part of cly.
 # Copyright (C) 2026 Grégor Boirie <gregor.boirie@free.fr>
 ################################################################################
 
-override PACKAGE := srutils
+override PACKAGE := cly
 override VERSION := 1.0
 EXTRA_CFLAGS     := -O2 -DNDEBUG -Wall -Wextra -Wformat=2
 EXTRA_LDFLAGS    := -O2

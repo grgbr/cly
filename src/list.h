@@ -1,11 +1,11 @@
-#ifndef _CLI_LIST_H
-#define _CLI_LIST_H
+#ifndef _CLY_LIST_H
+#define _CLY_LIST_H
 
 #include "common.h"
 
-struct cli_dir;
+struct cly_dir;
 
 extern void
-cli_list_build_cmd(struct cli_dir * directory);
+cly_list_build_cmd(struct cly_dir * directory);
 
-#endif /* _CLI_LIST_H */
+#endif /* _CLY_LIST_H */

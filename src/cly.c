@@ -1,4 +1,4 @@
-#include "cli.h"
+#include "cly.h"
 #include "expr.h"
 #include "yang.h"
 #include "list.h"
@@ -15,11 +15,11 @@
  * Utilities
  ******************************************************************************/
 
-#warning TODO: plug in a SIGWINCH signal handler
-
 unsigned int
 cli_term_cols(const struct cli_context * context)
 {
+#warning TODO: plug in a SIGWINCH signal handler
+
 	cli_assert_context(context);
 
 	if (context->isatty) {
@@ -184,7 +184,7 @@ cli_complete(struct cli_match * matches,
 		                     matches);
 }
 
-#if defined(CONFIG_CLI_LOG)
+#if defined(CONFIG_CLY_LOG)
 
 sr_log_level_t cli_log_lvl;
 
@@ -249,7 +249,7 @@ cli_setup_log(sr_log_level_t level)
 	}
 }
 
-#else  /* !defined(CONFIG_CLI_LOG) */
+#else  /* !defined(CONFIG_CLY_LOG) */
 
 static void
 cli_setup_log(sr_log_level_t level)
@@ -258,7 +258,7 @@ cli_setup_log(sr_log_level_t level)
 	sr_log_set_cb(NULL);
 }
 
-#endif /* defined(CONFIG_CLI_LOG) */
+#endif /* defined(CONFIG_CLY_LOG) */
 
 static int
 cli_init_context(struct cli_context * context, const char * const * style)
@@ -268,9 +268,9 @@ cli_init_context(struct cli_context * context, const char * const * style)
 
 	int err;
 
-	cli_setup_log(CONFIG_CLI_LOG_LEVEL);
+	cli_setup_log(CONFIG_CLY_LOG_SEVERITY_VALUE);
 
-#if defined(CONFIG_CLI_DEBUG)
+#if defined(CONFIG_CLY_DEBUG)
 	/*
 	 * SR_CTX_SET_PRIV_PARSED is required to print YANG diagram trees.
 	 * In addition, SR_CTX_SET_PRIV_PARSED is activated for non-printed
@@ -286,7 +286,7 @@ cli_init_context(struct cli_context * context, const char * const * style)
 		        sr_strerror(err));
 		return err;
 	}
-#endif /* defined(CONFIG_CLI_DEBUG) */
+#endif /* defined(CONFIG_CLY_DEBUG) */
 
 	err = sr_connect(SR_CONN_DEFAULT, &context->conn);
 	if (err != SR_ERR_OK) {

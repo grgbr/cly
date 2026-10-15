@@ -1,34 +1,34 @@
-#ifndef _CLI_SHOW_H
-#define _CLI_SHOW_H
+#ifndef _CLY_SHOW_H
+#define _CLY_SHOW_H
 
-#include "lyd_table.h"
+#include "srepo_table.h"
 
-struct cli_dir;
-struct cli_context;
+struct cly_dir;
+struct cly_context;
 struct lysc_node_container;
 struct lysc_node_list;
 
 extern int
-cli_show_make_config_cmd(struct cli_dir *                   directory,
+cly_show_make_config_cmd(struct cly_dir *                   directory,
                          const struct lysc_node_container * container,
                          const char *                       name,
-                         const struct cli_context *         context);
+                         const struct cly_context *         context);
 
 extern int
-cli_show_make_oper_cmd(struct cli_dir *                   directory,
+cly_show_make_oper_cmd(struct cly_dir *                   directory,
                        const struct lysc_node_container * container,
                        const char *                       name,
-                       const struct cli_context *         context);
+                       const struct cly_context *         context);
 
 extern int
-cli_show_make_config_list_cmd(struct cli_dir *         directory,
+cly_show_make_config_list_cmd(struct cly_dir *         directory,
                          const struct lysc_node_list * list,
                          const char *                  name,
-                         const struct cli_context *    context);
+                         const struct cly_context *    context);
 extern int
-cli_show_make_oper_list_cmd(struct cli_dir *              directory,
+cly_show_make_oper_list_cmd(struct cly_dir *              directory,
                             const struct lysc_node_list * list,
                             const char *                  name,
-                            const struct cli_context *    context);
+                            const struct cly_context *    context);
 
-#endif /* _CLI_SHOW_H */
+#endif /* _CLY_SHOW_H */

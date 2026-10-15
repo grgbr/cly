@@ -1,11 +1,11 @@
-#ifndef _CLI_QUIT_H
-#define _CLI_QUIT_H
+#ifndef _CLY_QUIT_H
+#define _CLY_QUIT_H
 
 #include "common.h"
 
-struct cli_dir;
+struct cly_dir;
 
 extern void
-cli_quit_build_cmd(struct cli_dir * directory);
+cly_quit_build_cmd(struct cly_dir * directory);
 
-#endif /* _CLI_QUIT_H */
+#endif /* _CLY_QUIT_H */

@@ -1,21 +1,21 @@
 #include "build.h"
-#include "cli.h"
+#include "cly.h"
 #include "show.h"
-#include "yang.h"
+#include <srutils/srepo/schema.h>
 
 /******************************************************************************
  * Command line hierarchy builder utilities.
  ******************************************************************************/
 
 static bool
-cli_build_node_uptodate(const struct lysc_node * node)
+cly_build_node_uptodate(const struct lysc_node * node)
 {
-	if (!(cli_lysc_status_flags(node) &
+	if (!(srepo_sch_status_flags(node) &
 	      (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC)))
 		return true;
 
 	/* Ignore obsolete and deprecated nodes. */
-	cli_lysc_dbg(node, "obsolete / deprecated node ignored.");
+	cly_debug_scn(node, "obsolete / deprecated node ignored.");
 
 	return false;
 }
@@ -25,27 +25,27 @@ cli_build_node_uptodate(const struct lysc_node * node)
  * one pointed to by `*directory'.
  */
 static int
-cli_build_child_dir(struct cli_dir **        directory,
+cly_build_child_dir(struct cly_dir **        directory,
                     const struct lysc_node * node,
-                    struct cli_context *     context)
+                    struct cly_context *     context)
 {
-	cli_assert(directory);
-	cli_assert(*directory);
-	cli_assert(node);
-	cli_assert_context(context);
+	cly_assert(directory);
+	cly_assert(*directory);
+	cly_assert(node);
+	cly_assert_context(context);
 
-	struct cli_dir * dir = *directory;
+	struct cly_dir * dir = *directory;
 	int              ret;
 
-	ret = cli_dir_make_child(&dir, node->name, CLI_DIR_NODE_TYPE, node);
+	ret = cly_dir_make_child(&dir, node->name, CLY_DIR_NODE_TYPE, node);
 	if (!ret) {
 		*directory = dir;
 		return 0;
 	}
 
-	cli_lysc_log(node,
-	             "cannot create menu directory entry: %s.",
-	             cli_dir_strerror(-ret));
+	cly_log_scn(node,
+	            "cannot create menu directory entry: %s.",
+	            cly_dir_strerror(-ret));
 
 	return ret;
 }
@@ -54,115 +54,116 @@ cli_build_child_dir(struct cli_dir **        directory,
  * Command line hierarchy build tracker.
  ******************************************************************************/
 
-struct cli_build_stat;
-struct cli_build;
+struct cly_build_stat;
+struct cly_build;
 
-typedef int cli_build_process_fn(struct cli_build_stat *,
-                                 struct cli_context *,
+typedef int cly_build_process_fn(struct cly_build_stat *,
+                                 struct cly_context *,
                                  const struct lysc_node *,
-                                 enum cli_walk_event,
-                                 struct cli_build *);
+                                 enum srepo_walk_event,
+                                 struct cly_build *);
 
-struct cli_build_stat {
-	cli_build_process_fn * process;
-	struct cli_dir *       dir;
+struct cly_build_stat {
+	cly_build_process_fn * process;
+	struct cly_dir *       dir;
 };
 
-struct cli_build {
+struct cly_build {
 	unsigned int            cnt;
 	unsigned int            nr;
-	struct cli_build_stat * stats;
+	struct cly_build_stat * stats;
 };
 
-#define CLI_BUILD_INIT_NR (4U)
+#define CLY_BUILD_INIT_NR (4U)
 
-#define cli_build_assert(_build) \
-	cli_assert(_build); \
-	cli_assert((_build)->nr >= CLI_BUILD_INIT_NR); \
-	cli_assert((_build)->cnt <= _build->nr); \
-	cli_assert((_build)->stats)
+#define cly_build_assert(_build) \
+	cly_assert(_build); \
+	cly_assert((_build)->nr >= CLY_BUILD_INIT_NR); \
+	cly_assert((_build)->cnt <= _build->nr); \
+	cly_assert((_build)->stats)
 
 static unsigned int
-cli_build_count(const struct cli_build * builder)
+cly_build_count(const struct cly_build * builder)
 {
-	cli_build_assert(builder);
+	cly_build_assert(builder);
 
 	return builder->cnt;
 }
 
 static void
-cli_build_push(struct cli_build *     builder,
-               cli_build_process_fn * process,
-               struct cli_dir *       directory)
+cly_build_push(struct cly_build *     builder,
+               cly_build_process_fn * process,
+               struct cly_dir *       directory)
 {
-	cli_build_assert(builder);
-	cli_assert(process);
+	cly_build_assert(builder);
+	cly_assert(process);
 
 	if (builder->cnt == builder->nr) {
 		builder->nr *= 2;
-		builder->stats = cli_realloc(builder->stats,
+		builder->stats = cly_realloc(builder->stats,
 		                             builder->nr *
 		                             sizeof(builder->stats[0]));
-		cli_assert(builder->stats);
+		cly_assert(builder->stats);
 	}
 
 	builder->stats[builder->cnt].process = process;
 	builder->stats[builder->cnt++].dir = directory;
 }
 
-static struct cli_build_stat *
-cli_build_pop(struct cli_build * builder)
+static struct cly_build_stat *
+cly_build_pop(struct cly_build * builder)
 {
-	cli_build_assert(builder);
-	cli_assert(builder->cnt);
+	cly_build_assert(builder);
+	cly_assert(builder->cnt);
 
 	return &builder->stats[--builder->cnt];
 }
 
 static int
-cli_build_process(struct cli_build *       builder,
+cly_build_process(struct cly_build *       builder,
                   const struct lysc_node * node,
-                  enum cli_walk_event      event,
-                  struct cli_context *     context)
+                  enum srepo_walk_event    event,
+                  struct cly_context *     context)
 {
-	cli_build_assert(builder);
-	cli_assert(builder->cnt);
-	cli_assert(node);
-	cli_assert((event == CLI_WALK_PRE_EVT) || (event == CLI_WALK_POST_EVT));
-	cli_assert_context(context);
+	cly_build_assert(builder);
+	cly_assert(builder->cnt);
+	cly_assert(node);
+	cly_assert((event == SREPO_PRE_WALK_EVT) ||
+	           (event == SREPO_POST_WALK_EVT));
+	cly_assert_context(context);
 
-	struct cli_build_stat * stat = &builder->stats[builder->cnt - 1];
+	struct cly_build_stat * stat = &builder->stats[builder->cnt - 1];
 
-	cli_assert(stat->process);
+	cly_assert(stat->process);
 
 	return stat->process(stat, context, node, event, builder);
 }
 
 static void
-cli_build_clear(struct cli_build * builder)
+cly_build_clear(struct cly_build * builder)
 {
-	cli_build_assert(builder);
+	cly_build_assert(builder);
 
 	builder->cnt = 0;
 }
 
 static void
-cli_build_init(struct cli_build * builder)
+cly_build_init(struct cly_build * builder)
 {
-	cli_assert(builder);
+	cly_assert(builder);
 
 	builder->cnt = 0;
-	builder->nr = CLI_BUILD_INIT_NR;
-	builder->stats = cli_malloc(CLI_BUILD_INIT_NR *
+	builder->nr = CLY_BUILD_INIT_NR;
+	builder->stats = cly_malloc(CLY_BUILD_INIT_NR *
 	                            sizeof(builder->stats[0]));
 }
 
 static void
-cli_build_fini(struct cli_build * builder)
+cly_build_fini(struct cly_build * builder)
 {
-	cli_build_assert(builder);
+	cly_build_assert(builder);
 
-	cli_free(builder->stats);
+	cly_free(builder->stats);
 }
 
 /******************************************************************************/
@@ -171,22 +172,22 @@ cli_build_fini(struct cli_build * builder)
 
 #if 0
 static int
-cli_build_ext_cmd(const struct cli_context *  context,
-                  struct cli_dir *            directory,
+cly_build_ext_cmd(const struct cly_context *  context,
+                  struct cly_dir *            directory,
                   const struct lysc_node *    node,
                   const struct lysc_cly_cmd * command)
 {
-	cli_assert_context(context);
-	cli_dir_assert(directory);
-	cli_assert(node);
-	cli_assert(command);
-	cli_assert(command->name);
+	cly_assert_context(context);
+	cly_dir_assert(directory);
+	cly_assert(node);
+	cly_assert(command);
+	cly_assert(command->name);
 
 	int ret;
 
 	switch (command->kind) {
 	case LYSC_CLY_SHOW_CONFIG_CMD_KIND:
-		ret = cli_show_make_config_cmd(
+		ret = cly_show_make_config_cmd(
 			directory,
 			(const struct lysc_node_container *)node,
 			command->name,
@@ -194,7 +195,7 @@ cli_build_ext_cmd(const struct cli_context *  context,
 		break;
 
 	case LYSC_CLY_SHOW_STATE_CMD_KIND:
-		ret = cli_show_make_oper_cmd(
+		ret = cly_show_make_oper_cmd(
 			directory,
 			(const struct lysc_node_container *)node,
 			command->name,
@@ -213,21 +214,21 @@ cli_build_ext_cmd(const struct cli_context *  context,
 }
 
 static int
-cli_build_handle_container(struct cli_context *     context,
+cly_build_handle_container(struct cly_context *     context,
                            const struct lysc_node * node)
 {
 	struct lysc_cly          cly;
 	ly_bool                  has_cly;
 	const struct lysc_node * menu = NULL;
-	struct cli_dir *         dir;
+	struct cly_dir *         dir;
 	int                      ret;
 
 	/* Probe for YANG cly extension set. */
 	ret = lysc_cly_load(node, &cly);
 	if (ret != LY_SUCCESS) {
-		cli_lysc_log(node,
-		             "cannot process menu entry: %s.",
-		             ly_strerr(ret));
+		cly_log_scn(node,
+		            "cannot process menu entry: %s.",
+		            ly_strerr(ret));
 		return -EBADR;
 	}
 
@@ -244,7 +245,7 @@ cli_build_handle_container(struct cli_context *     context,
 		 * to it.
 		 */
 		menu = lysc_cly_get_menu(&cly);
-		cli_assert(menu);
+		cly_assert(menu);
 	}
 
 	if (!menu) {
@@ -253,15 +254,15 @@ cli_build_handle_container(struct cli_context *     context,
 		 * YANG path rooted under its module related directory menu
 		 * entry.
 		 */
-		struct cli_dir * root = &context->root;
+		struct cly_dir * root = &context->root;
 
 		/*
 		 * Create the top-level directory related to the module owning
 		 * the node.
 		 */
-		ret = cli_dir_make_child(&root,
+		ret = cly_dir_make_child(&root,
 		                         node->module->name,
-		                         CLI_DIR_MOD_TYPE,
+		                         CLY_DIR_MOD_TYPE,
 		                         node->module);
 		if (ret)
 			goto nodir;
@@ -270,9 +271,9 @@ cli_build_handle_container(struct cli_context *     context,
 		 * Then, create the menu directory entry hierarchy related to
 		 * the node underneath.
 		 */
-		dir = cli_dir_make_from_node(node,
+		dir = cly_dir_make_from_node(node,
 		                             root,
-		                             CLI_DIR_NODE_TYPE,
+		                             CLY_DIR_NODE_TYPE,
 		                             node);
 	}
 	else {
@@ -280,9 +281,9 @@ cli_build_handle_container(struct cli_context *     context,
 		 * Create the menu directory hierarchy as requested by the cly
 		 * extensions under our root directory entry.
 		 */
-		dir = cli_dir_make_from_node(menu,
+		dir = cly_dir_make_from_node(menu,
 		                             &context->root,
-		                             CLI_DIR_MOD_TYPE,
+		                             CLY_DIR_MOD_TYPE,
 		                             node->module);
 	}
 	if (!dir) {
@@ -302,13 +303,13 @@ cli_build_handle_container(struct cli_context *     context,
 		const struct lysc_cly_cmd * cmd;
 
 		lysc_cly_foreach_command(&cly, cmd) {
-			ret = cli_build_ext_cmd(context, dir, node, cmd);
+			ret = cly_build_ext_cmd(context, dir, node, cmd);
 			if (ret)
 				goto unload;
 		}
 	}
 	else {
-		ret = cli_show_make_config_cmd(
+		ret = cly_show_make_config_cmd(
 			dir,
 			(const struct lysc_node_container *)node,
 			"config",
@@ -316,7 +317,7 @@ cli_build_handle_container(struct cli_context *     context,
 		if (ret)
 			goto unload;
 
-		ret = cli_show_make_oper_cmd(
+		ret = cly_show_make_oper_cmd(
 			dir,
 			(const struct lysc_node_container *)node,
 			"status",
@@ -330,9 +331,9 @@ cli_build_handle_container(struct cli_context *     context,
 	return 0;
 
 nodir:
-	cli_lysc_log(node,
-	             "cannot create menu directory entry: %s.",
-	             cli_dir_strerror(-ret));
+	cly_log_scn(node,
+	            "cannot create menu directory entry: %s.",
+	            cly_dir_strerror(-ret));
 unload:
 	lysc_cly_unload(&cly);
 
@@ -340,11 +341,11 @@ unload:
 }
 
 static int
-cli_build_handle_list(struct cli_context *     context,
+cly_build_handle_list(struct cly_context *     context,
                       const struct lysc_node * node,
-                      struct cli_build_stat *  builder)
+                      struct cly_build_stat *  builder)
 {
-	struct cli_dir * dir = builder->dir;
+	struct cly_dir * dir = builder->dir;
 
 	if (!dir) {
 		/*
@@ -355,60 +356,57 @@ cli_build_handle_list(struct cli_context *     context,
 		int ret;
 
 		dir = &context->root;
-		ret = cli_dir_make_child(&dir,
+		ret = cly_dir_make_child(&dir,
 		                         node->module->name,
-		                         CLI_DIR_MOD_TYPE,
+		                         CLY_DIR_MOD_TYPE,
 		                         node->module);
 		if (ret) {
-			cli_lysc_log(node,
-			             "cannot create menu directory entry: %s.",
-			             cli_dir_strerror(-ret));
-			return ret;
+			cly_log_scn(node,
+			            "cannot create menu directory entry: %s.",
+			            cly_dir_strerror(-ret));
+			return srepo_sys_error(ret);
 		}
 
 		builder->dir = dir;
 	}
 
-	ret = cli_show_make_config_list_cmd(dir,
+	ret = cly_show_make_config_list_cmd(dir,
 	                                    (const struct lysc_node_list *)node,
 	                                    "config",
 	                                    context);
 	if (ret)
-		return ret;
+		return srepo_sys_error(ret);
 
-	ret = cli_show_make_oper_list_cmd(dir,
+	ret = cly_show_make_oper_list_cmd(dir,
 	                                  (const struct lysc_node_list *)node,
 	                                  "status",
 	                                  context);
-	if (ret)
-		return ret;
-
-	return 0;
+	return srepo_sys_error(ret);
 }
 
 static int
-cli_build_tree_dir(struct cli_context *     context,
+cly_build_tree_dir(struct cly_context *     context,
                    const struct lysc_node * node,
-                   enum cli_walk_event      event,
-                   struct cli_build_stat *  builder)
+                   enum cly_walk_event      event,
+                   struct cly_build_stat *  builder)
 {
-	cli_assert_context(context);
-	cli_assert(node);
-	cli_assert((event == CLI_WALK_PRE_EVT) || (event == CLI_WALK_POST_EVT));
+	cly_assert_context(context);
+	cly_assert(node);
+	cly_assert((event == CLY_PRE_WALK_EVT) || (event == CLY_POST_WALK_EVT));
 
 	int ret;
 
-	if (cli_lysc_status_flags(node) &
+	if (srepo_sch_status_flags(node) &
 	    (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC)) {
 		/* Ignore obsolete and deprecated nodes. */
-		cli_lysc_dbg(node, "obsolete / deprecated node ignored.");
-		return CLI_WALK_SKIP_RET;
+		cly_debug_scn(node, "obsolete / deprecated node ignored.");
+		return CLY_SKIP_WALK_RET;
 	}
 
-	switch (node->nodetype) {
+	switch (srepo_sch_node_type(node)) {
 	case LYS_CONTAINER:
-		if (event == CLI_WALK_PRE_EVT) {
-			ret = cli_build_handle_container(context, node);
+		if (event == CLY_PRE_WALK_EVT) {
+			ret = cly_build_handle_container(context, node);
 			if (ret)
 				return ret;
 		}
@@ -416,8 +414,8 @@ cli_build_tree_dir(struct cli_context *     context,
 		break;
 
 	case LYS_LIST:
-		if (event == CLI_WALK_PRE_EVT) {
-			ret = cli_build_handle_list(context, node, builder);
+		if (event == CLY_PRE_WALK_EVT) {
+			ret = cly_build_handle_list(context, node, builder);
 			if (ret)
 				return ret;
 		}
@@ -425,7 +423,7 @@ cli_build_tree_dir(struct cli_context *     context,
 		break;
 
 	case LYS_LEAF:
-		return CLI_WALK_SKIP_RET;
+		return CLY_SKIP_WALK_RET;
 
 	case LYS_CHOICE:
 	case LYS_LEAFLIST:
@@ -443,165 +441,175 @@ cli_build_tree_dir(struct cli_context *     context,
 	case LYS_AUGMENT:
 	case LYS_UNKNOWN:
 	default:
-		if (event == CLI_WALK_PRE_EVT)
-			cli_lysc_dbg(node,
-			             "'%s' node type support not implemented !",
-			             cli_ly_nodetype_str(node->nodetype));
-		return CLI_WALK_SKIP_RET;
+		if (event == CLY_PRE_WALK_EVT)
+			cly_debug_scn(
+				node,
+				"'%s' node type support not implemented !",
+				cly_sch_node_type_str(node));
+		return CLY_SKIP_WALK_RET;
 	}
 
-	return CLI_WALK_CONT_RET;
+	return CLY_CONT_WALK_RET;
 }
 
 #endif
 
 static int
-cli_build_process_cont(struct cli_build_stat *  state,
-                       struct cli_context *     context,
+cly_build_process_cont(struct cly_build_stat *  state,
+                       struct cly_context *     context,
                        const struct lysc_node * node,
-                       enum cli_walk_event      event,
-                       struct cli_build *       builder);
+                       enum srepo_walk_event    event,
+                       struct cly_build *       builder);
 
 static int
-cli_build_process_list(struct cli_build_stat *  state,
-                       struct cli_context *     context,
+cly_build_process_list(struct cly_build_stat *  state,
+                       struct cly_context *     context,
                        const struct lysc_node * node,
-                       enum cli_walk_event      event,
-                       struct cli_build *       builder);
+                       enum srepo_walk_event    event,
+                       struct cly_build *       builder);
 
 /******************************************************************************
  * Container command line builder state handling.
  ******************************************************************************/
 
 static int
-cli_build_handle_cont(struct cli_build_stat *            state,
-                      struct cli_context *               context,
+cly_build_handle_cont(struct cly_build_stat *            state,
+                      struct cly_context *               context,
                       const struct lysc_node_container * container,
-                      enum cli_walk_event                event,
-                      struct cli_build *                 builder)
+                      enum srepo_walk_event              event,
+                      struct cly_build *                 builder)
 {
-	cli_assert(state);
-	cli_assert(state->dir);
-	cli_assert_context(context);
-	cli_assert(container);
-	cli_assert(((const struct lysc_node *)container)->nodetype ==
+	cly_assert(state);
+	cly_assert(state->dir);
+	cly_assert_context(context);
+	cly_assert(container);
+	cly_assert(srepo_sch_node_type((const struct lysc_node *)container) ==
 	           LYS_CONTAINER);
-	cli_assert(event == CLI_WALK_PRE_EVT);
-	cli_build_assert(builder);
+	cly_assert(event == SREPO_PRE_WALK_EVT);
+	cly_build_assert(builder);
 
-	if (cli_build_node_uptodate((const struct lysc_node *)container)) {
-		struct cli_dir * dir = state->dir;
+	if (cly_build_node_uptodate((const struct lysc_node *)container)) {
+		struct cly_dir * dir = state->dir;
 		int              ret;
 
 		/*
 		 * Create the directory entry related to the container
 		 * given in argument.
 		 */
-		ret = cli_build_child_dir(&dir,
+		ret = cly_build_child_dir(&dir,
 		                          (const struct lysc_node *)
 		                          container,
 		                          context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
 		/*
 		 * Create and attach a show configuration command to the
 		 * directory just created.
 		 */
-		ret = cli_show_make_config_cmd(dir,
+		ret = cly_show_make_config_cmd(dir,
 		                               container,
 		                               "config",
 		                               context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
 		/*
 		 * Create and attach a show operational state command to
 		 * the directory just created.
 		 */
-		ret = cli_show_make_oper_cmd(dir,
+		ret = cly_show_make_oper_cmd(dir,
 		                             container,
 		                             "status",
 		                             context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
-		cli_build_push(builder,
-		               cli_build_process_cont,
+		cly_build_push(builder,
+		               cly_build_process_cont,
 		               dir);
 
-		return CLI_WALK_CONT_RET;
+		return SREPO_CONT_WALK_RET;
 	}
 	else
-		return CLI_WALK_SKIP_RET;
+		return SREPO_SKIP_WALK_RET;
 }
 
 static int
-cli_build_handle_list(struct cli_build_stat *       state,
-                      struct cli_context *          context,
+cly_build_handle_list(struct cly_build_stat *       state,
+                      struct cly_context *          context,
                       const struct lysc_node_list * list,
-                      enum cli_walk_event           event,
-                      struct cli_build *            builder)
+                      enum srepo_walk_event         event,
+                      struct cly_build *            builder)
 {
-	cli_assert(state);
-	cli_assert(state->dir);
-	cli_assert_context(context);
-	cli_assert(list);
-	cli_assert(((const struct lysc_node *)list)->nodetype == LYS_LIST);
-	cli_assert(event == CLI_WALK_PRE_EVT);
-	cli_build_assert(builder);
+	cly_assert(state);
+	cly_assert(state->dir);
+	cly_assert_context(context);
+	cly_assert(list);
+	cly_assert(srepo_sch_node_type((const struct lysc_node *)list) ==
+	           LYS_LIST);
+	cly_assert(event == SREPO_PRE_WALK_EVT);
+	cly_build_assert(builder);
 
-	if (cli_build_node_uptodate((const struct lysc_node *)list)) {
+	if (cly_build_node_uptodate((const struct lysc_node *)list)) {
 		int ret;
 
 		/*
 		 * Create and attach a show configuration command to its
 		 * parent directory.
 		 */
-		ret = cli_show_make_config_list_cmd(state->dir,
+		ret = cly_show_make_config_list_cmd(state->dir,
 		                                    list,
 		                                    "config",
 		                                    context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
 		/*
 		 * Create and attach a show operational state command to
 		 * its parent directory.
 		 */
-		ret = cli_show_make_oper_list_cmd(state->dir,
+		ret = cly_show_make_oper_list_cmd(state->dir,
 		                                  list,
 		                                  "status",
 		                                  context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
-		cli_build_push(builder,
-		               cli_build_process_list,
+		cly_build_push(builder,
+		               cly_build_process_list,
 		               state->dir);
 
-		return CLI_WALK_CONT_RET;
+		return SREPO_CONT_WALK_RET;
 	}
 	else
-		return CLI_WALK_SKIP_RET;
+		return SREPO_SKIP_WALK_RET;
+}
+
+static const char *
+cly_sch_node_type_str(const struct lysc_node * node)
+{
+	cly_assert(node);
+
+	return srepo_sch_node_type_str(srepo_sch_node_type(node));
 }
 
 static int
-cli_build_process_cont(struct cli_build_stat *  state,
-                       struct cli_context *     context,
+cly_build_process_cont(struct cly_build_stat *  state,
+                       struct cly_context *     context,
                        const struct lysc_node * node,
-                       enum cli_walk_event      event,
-                       struct cli_build *       builder)
+                       enum srepo_walk_event    event,
+                       struct cly_build *       builder)
 {
-	cli_assert(state);
-	cli_assert_context(context);
-	cli_assert(node);
-	cli_assert(event == CLI_WALK_PRE_EVT);
-	cli_build_assert(builder);
+	cly_assert(state);
+	cly_assert_context(context);
+	cly_assert(node);
+	cly_assert(event == SREPO_PRE_WALK_EVT);
+	cly_build_assert(builder);
 
-	switch (node->nodetype) {
+	switch (srepo_sch_node_type(node)) {
 	case LYS_CONTAINER:
-		return cli_build_handle_cont(
+		return cly_build_handle_cont(
 			state,
 			context,
 			(const struct lysc_node_container *)node,
@@ -609,7 +617,7 @@ cli_build_process_cont(struct cli_build_stat *  state,
 			builder);
 
 	case LYS_LIST:
-		return cli_build_handle_list(
+		return cly_build_handle_list(
 			state,
 			context,
 			(const struct lysc_node_list *)node,
@@ -625,9 +633,9 @@ cli_build_process_cont(struct cli_build_stat *  state,
 	case LYS_ANYDATA:
 	case LYS_ACTION:
 	case LYS_NOTIF:
-		cli_lysc_dbg(node,
-		             "'%s' node type not implemented !",
-		             cli_ly_nodetype_str(node->nodetype));
+		cly_debug_scn(node,
+		              "'%s' node type not implemented !",
+		              cly_sch_node_type_str(node));
 		break;
 
 	case LYS_RPC:
@@ -638,43 +646,45 @@ cli_build_process_cont(struct cli_build_stat *  state,
 		 * Basically, this should never happen since we are traversing
 		 * a YANG compiled schema.
 		 */
-		cli_lysc_dbg(node,
-		             "invalid '%s' node type.",
-		             cli_ly_nodetype_str(node->nodetype));
+		cly_debug_scn(node,
+		              "invalid '%s' node type.",
+		              cly_sch_node_type_str(node));
 	}
 
-	return CLI_WALK_SKIP_RET;
+	return SREPO_SKIP_WALK_RET;
 }
 
 /******************************************************************************
  * List command line builder state handling.
  ******************************************************************************/
 
+#if 0
+#warning REMOVE ME and adapt cly_show_make_.*_list_cmd() so that it may cope with list sub containers...
 static int
-cli_build_handle_list_cont(struct cli_build_stat *            state,
-                           struct cli_context *               context,
+cly_build_handle_list_cont(struct cly_build_stat *            state,
+                           struct cly_context *               context,
                            const struct lysc_node_container * container,
-                           enum cli_walk_event                event,
-                           struct cli_build *                 builder)
+                           enum cly_walk_event                event,
+                           struct cly_build *                 builder)
 {
-	cli_assert(state);
-	cli_assert(state->dir);
-	cli_assert_context(context);
-	cli_assert(container);
-	cli_assert(((const struct lysc_node *)container)->nodetype ==
+	cly_assert(state);
+	cly_assert(state->dir);
+	cly_assert_context(context);
+	cly_assert(container);
+	cly_assert(srepo_sch_node_type((const struct lysc_node *)container) ==
 	           LYS_CONTAINER);
-	cli_assert(event == CLI_WALK_PRE_EVT);
-	cli_build_assert(builder);
+	cly_assert(event == CLY_PRE_WALK_EVT);
+	cly_build_assert(builder);
 
-	if (cli_build_node_uptodate((const struct lysc_node *)container)) {
-		struct cli_dir * dir = state->dir;
+	if (cly_build_node_uptodate((const struct lysc_node *)container)) {
+		struct cly_dir * dir = state->dir;
 		int              ret;
 
 		/*
 		 * Create the directory entry related to the list given
 		 * in argument.
 		 */
-		ret = cli_build_child_dir(&dir,
+		ret = cly_build_child_dir(&dir,
 		                          (const struct lysc_node *)container,
 		                          context);
 		if (ret)
@@ -684,7 +694,7 @@ cli_build_handle_list_cont(struct cli_build_stat *            state,
 		 * Create and attach a show configuration command to the
 		 * directory just created.
 		 */
-		ret = cli_show_make_config_list_cmd(dir,
+		ret = cly_show_make_config_list_cmd(dir,
 		                                    container,
 		                                    "config",
 		                                    context);
@@ -695,44 +705,45 @@ cli_build_handle_list_cont(struct cli_build_stat *            state,
 		 * Create and attach a show operational state command to
 		 * the directory just created.
 		 */
-		ret = cli_show_make_oper_list_cmd(dir,
+		ret = cly_show_make_oper_list_cmd(dir,
 		                                  container,
 		                                  "status",
 		                                  context);
 		if (ret)
 			return ret;
 
-		cli_build_push(builder, cli_build_process_list, dir);
+		cly_build_push(builder, cly_build_process_list, dir);
 
-		return CLI_WALK_CONT_RET;
+		return CLY_CONT_WALK_RET;
 	}
 	else
-		return CLI_WALK_SKIP_RET;
+		return CLY_SKIP_WALK_RET;
 }
+#endif
 
 static int
-cli_build_process_list(struct cli_build_stat *  state,
-                       struct cli_context *     context,
+cly_build_process_list(struct cly_build_stat *  state,
+                       struct cly_context *     context,
                        const struct lysc_node * node,
-                       enum cli_walk_event      event,
-                       struct cli_build *       builder)
+                       enum srepo_walk_event    event,
+                       struct cly_build *       builder)
 {
-	cli_assert(state);
-	cli_assert_context(context);
-	cli_assert(node);
-	cli_assert(event == CLI_WALK_PRE_EVT);
-	cli_build_assert(builder);
+	cly_assert(state);
+	cly_assert_context(context);
+	cly_assert(node);
+	cly_assert(event == SREPO_PRE_WALK_EVT);
+	cly_build_assert(builder);
 
-	switch (node->nodetype) {
+	switch (srepo_sch_node_type(node)) {
 	case LYS_CONTAINER:
-#warning REMOVE ME and adapt cli_show_make_.*_list_cmd() so that it may cope with list sub containers...
+#warning REMOVE ME and adapt cly_show_make_.*_list_cmd() so that it may cope with list sub containers...
 #if 1
-		cli_lysc_dbg(node,
-		             "'%s' node type not implemented !",
-		             cli_ly_nodetype_str(node->nodetype));
+		cly_debug_scn(node,
+		              "'%s' node type not implemented !",
+		              cly_sch_node_type_str(node));
 		break;
 #else
-		return cli_build_handle_list_cont(
+		return cly_build_handle_list_cont(
 			state,
 			context,
 			(const struct lysc_node_container *)node,
@@ -750,9 +761,9 @@ cli_build_process_list(struct cli_build_stat *  state,
 	case LYS_ANYDATA:
 	case LYS_ACTION:
 	case LYS_NOTIF:
-		cli_lysc_dbg(node,
-		             "'%s' node type not implemented !",
-		             cli_ly_nodetype_str(node->nodetype));
+		cly_debug_scn(node,
+		              "'%s' node type not implemented !",
+		              cly_sch_node_type_str(node));
 		break;
 
 	case LYS_RPC:
@@ -763,12 +774,12 @@ cli_build_process_list(struct cli_build_stat *  state,
 		 * Basically, this should never happen since we are traversing
 		 * a YANG compiled schema.
 		 */
-		cli_lysc_dbg(node,
-		             "invalid '%s' node type.",
-		             cli_ly_nodetype_str(node->nodetype));
+		cly_debug_scn(node,
+		              "invalid '%s' node type.",
+		              cly_sch_node_type_str(node));
 	}
 
-	return CLI_WALK_SKIP_RET;
+	return SREPO_SKIP_WALK_RET;
 }
 
 /******************************************************************************
@@ -776,30 +787,30 @@ cli_build_process_list(struct cli_build_stat *  state,
  ******************************************************************************/
 
 static int
-cli_build_top_dir(struct cli_dir **        directory,
+cly_build_top_dir(struct cly_dir **        directory,
                   const struct lysc_node * node,
-                  struct cli_context *     context)
+                  struct cly_context *     context)
 {
-	cli_assert(directory);
-	cli_assert(node);
-	cli_assert_context(context);
+	cly_assert(directory);
+	cly_assert(node);
+	cly_assert_context(context);
 
-	struct cli_dir * dir = &context->root;
+	struct cly_dir * dir = &context->root;
 	int              ret;
 
 	/*
 	 * Create the top-level directory related to the module owning
 	 * the node.
 	 */
-	ret = cli_dir_make_child(&dir,
+	ret = cly_dir_make_child(&dir,
 	                         node->module->name,
-	                         CLI_DIR_MOD_TYPE,
+	                         CLY_DIR_MOD_TYPE,
 	                         node->module);
 	if (ret) {
-		cli_lysc_log(
+		cly_log_scn(
 			node,
 			"cannot create top-level menu directory entry: %s.",
-			cli_dir_strerror(-ret));
+			cly_dir_strerror(-ret));
 		return ret;
 	}
 
@@ -807,7 +818,7 @@ cli_build_top_dir(struct cli_dir **        directory,
 	 * Then, create the directory entry related to the container given in
 	 * argument underneath.
 	 */
-	ret = cli_build_child_dir(&dir, node, context);
+	ret = cly_build_child_dir(&dir, node, context);
 	if (ret)
 		return ret;
 
@@ -817,143 +828,142 @@ cli_build_top_dir(struct cli_dir **        directory,
 }
 
 static int
-cli_build_handle_topcont(struct cli_build_stat *            state __cli_unused,
-                         struct cli_context *               context,
+cly_build_handle_topcont(struct cly_build_stat *            state __unused,
+                         struct cly_context *               context,
                          const struct lysc_node_container * container,
-                         enum cli_walk_event                event,
-                         struct cli_build *                 builder)
+                         enum srepo_walk_event              event,
+                         struct cly_build *                 builder)
 {
-	cli_assert(state);
-	cli_assert(!state->dir);
-	cli_assert_context(context);
-	cli_assert(container);
-	cli_assert(((const struct lysc_node *)container)->nodetype ==
+	cly_assert(state);
+	cly_assert(!state->dir);
+	cly_assert_context(context);
+	cly_assert(container);
+	cly_assert(srepo_sch_node_type((const struct lysc_node *)container) ==
 	           LYS_CONTAINER);
-	cli_assert(event == CLI_WALK_PRE_EVT);
-	cli_build_assert(builder);
+	cly_assert(event == SREPO_PRE_WALK_EVT);
+	cly_build_assert(builder);
 
-	if (cli_build_node_uptodate((const struct lysc_node *) container)) {
-		struct cli_dir * dir;
+	if (cly_build_node_uptodate((const struct lysc_node *)container)) {
+		struct cly_dir * dir;
 		int              ret;
 
 		/*
 		 * Create the directory entry related to the container
 		 * given in argument.
 		 */
-		ret = cli_build_top_dir(&dir,
+		ret = cly_build_top_dir(&dir,
 		                        (const struct lysc_node *)
 		                        container,
 		                        context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
 		/*
 		 * Create and attach a show configuration command to the
 		 * directory just created.
 		 */
-		ret = cli_show_make_config_cmd(dir,
+		ret = cly_show_make_config_cmd(dir,
 		                               container,
 		                               "config",
 		                               context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
 		/*
 		 * Create and attach a show operational state command to
 		 * the directory just created.
 		 */
-		ret = cli_show_make_oper_cmd(dir,
+		ret = cly_show_make_oper_cmd(dir,
 		                             container,
 		                             "status",
 		                             context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
-		cli_build_push(builder,
-		               cli_build_process_cont,
-		               dir);
+		cly_build_push(builder, cly_build_process_cont, dir);
 
-		return CLI_WALK_CONT_RET;
+		return SREPO_CONT_WALK_RET;
 	}
 	else
-		return CLI_WALK_SKIP_RET;
+		return SREPO_SKIP_WALK_RET;
 }
 
 static int
-cli_build_handle_toplist(struct cli_build_stat *       state __cli_unused,
-                         struct cli_context *          context,
+cly_build_handle_toplist(struct cly_build_stat *       state __unused,
+                         struct cly_context *          context,
                          const struct lysc_node_list * list,
-                         enum cli_walk_event           event,
-                         struct cli_build *            builder)
+                         enum srepo_walk_event         event,
+                         struct cly_build *            builder)
 {
-	cli_assert(state);
-	cli_assert(!state->dir);
-	cli_assert_context(context);
-	cli_assert(list);
-	cli_assert(((const struct lysc_node *)list)->nodetype == LYS_LIST);
-	cli_assert(event == CLI_WALK_PRE_EVT);
-	cli_build_assert(builder);
+	cly_assert(state);
+	cly_assert(!state->dir);
+	cly_assert_context(context);
+	cly_assert(list);
+	cly_assert(srepo_sch_node_type((const struct lysc_node *)list) ==
+	           LYS_LIST);
+	cly_assert(event == SREPO_PRE_WALK_EVT);
+	cly_build_assert(builder);
 
-	if (cli_build_node_uptodate((const struct lysc_node *)list)) {
-		struct cli_dir * dir;
+	if (cly_build_node_uptodate((const struct lysc_node *)list)) {
+		struct cly_dir * dir;
 		int              ret;
 
 		/*
 		 * Create the directory entry related to the list given
 		 * in argument.
 		 */
-		ret = cli_build_top_dir(&dir,
+		ret = cly_build_top_dir(&dir,
 		                        (const struct lysc_node *)list,
 		                        context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
 		/*
 		 * Create and attach a show configuration command to the
 		 * directory just created.
 		 */
-		ret = cli_show_make_config_list_cmd(dir,
+		ret = cly_show_make_config_list_cmd(dir,
 		                                    list,
 		                                    "config",
 		                                    context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
 		/*
 		 * Create and attach a show operational state command to
 		 * the directory just created.
 		 */
-		ret = cli_show_make_oper_list_cmd(dir,
+		ret = cly_show_make_oper_list_cmd(dir,
 		                                  list,
 		                                  "status",
 		                                  context);
 		if (ret)
-			return ret;
+			return srepo_sys_error(ret);
 
-		cli_build_push(builder, cli_build_process_list, dir);
+		cly_build_push(builder, cly_build_process_list, dir);
 
-		return CLI_WALK_CONT_RET;
+		return SREPO_CONT_WALK_RET;
 	}
 	else
-		return CLI_WALK_SKIP_RET;
+		return SREPO_SKIP_WALK_RET;
 }
 
 static int
-cli_build_process_module(struct cli_build_stat *  state,
-                         struct cli_context *     context,
+cly_build_process_module(struct cly_build_stat *  state,
+                         struct cly_context *     context,
                          const struct lysc_node * node,
-                         enum cli_walk_event      event,
-                         struct cli_build *       builder)
+                         enum srepo_walk_event    event,
+                         struct cly_build *       builder)
 {
-	cli_assert(state);
-	cli_assert_context(context);
-	cli_assert(node);
-	cli_assert(event == CLI_WALK_PRE_EVT);
-	cli_build_assert(builder);
+	cly_assert(state);
+	cly_assert_context(context);
+	cly_assert(node);
+	cly_assert(event == SREPO_PRE_WALK_EVT);
+	cly_build_assert(builder);
 
-	switch (node->nodetype) {
+	switch (srepo_sch_node_type(node)) {
 	case LYS_CONTAINER:
-		return cli_build_handle_topcont(
+		return cly_build_handle_topcont(
 			state,
 			context,
 			(const struct lysc_node_container *)node,
@@ -961,7 +971,7 @@ cli_build_process_module(struct cli_build_stat *  state,
 			builder);
 
 	case LYS_LIST:
-		return cli_build_handle_toplist(
+		return cly_build_handle_toplist(
 			state,
 			context,
 			(const struct lysc_node_list *)node,
@@ -970,9 +980,9 @@ cli_build_process_module(struct cli_build_stat *  state,
 
 	case LYS_RPC:
 	case LYS_NOTIF:
-		cli_lysc_dbg(node,
-		             "'%s' node type not implemented !",
-		             cli_ly_nodetype_str(node->nodetype));
+		cly_debug_scn(node,
+		              "'%s' node type not implemented !",
+		              cly_sch_node_type_str(node));
 		break;
 
 	case LYS_LEAF:
@@ -988,12 +998,12 @@ cli_build_process_module(struct cli_build_stat *  state,
 		 * We don't have to support them as long as none of the YANG
 		 * modules we parse use them as top-level statements.
 		 */
-		cli_lysc_dbg(node,
-		             "unexpected '%s' node type.",
-		             cli_ly_nodetype_str(node->nodetype));
+		cly_debug_scn(node,
+		              "unexpected '%s' node type.",
+		              cly_sch_node_type_str(node));
 	}
 
-	return CLI_WALK_SKIP_RET;
+	return SREPO_SKIP_WALK_RET;
 }
 
 /******************************************************************************
@@ -1001,55 +1011,55 @@ cli_build_process_module(struct cli_build_stat *  state,
  ******************************************************************************/
 
 static int
-cli_build_tree(struct cli_context *     context,
+cly_build_tree(struct cly_context *     context,
                const struct lysc_node * node,
-               enum cli_walk_event      event,
+               enum srepo_walk_event    event,
                void *                   builder)
 {
-	cli_assert_context(context);
-	cli_assert(node);
-	cli_assert((event == CLI_WALK_PRE_EVT) || (event == CLI_WALK_POST_EVT));
-	cli_assert(builder);
+	cly_assert_context(context);
+	cly_assert(node);
+	cly_assert((event == SREPO_PRE_WALK_EVT) ||
+	           (event == SREPO_POST_WALK_EVT));
+	cly_assert(builder);
 
-	if (event == CLI_WALK_PRE_EVT)
-		return cli_build_process((struct cli_build *)builder,
+	if (event == SREPO_PRE_WALK_EVT)
+		return cly_build_process((struct cly_build *)builder,
 		                         node,
 		                         event,
 		                         context);
 
-	/* else if (event == CLI_WALK_POST_EVT) */
-	cli_build_pop(builder);
+	/* else if (event == CLY_POST_WALK_EVT) */
+	cly_build_pop(builder);
 
-	return CLI_WALK_CONT_RET;
+	return SREPO_CONT_WALK_RET;
 }
 
 int
-cli_build_from_schema(struct cli_context * context)
+cly_build_from_schema(struct cly_context * context)
 {
 	unsigned int              m;
 	const struct lys_module * mod;
-	struct cli_build          build;
-	int                       ret = 0;
+	struct cly_build          build;
+	sr_error_t                ret = SR_ERR_OK;
 
-	cli_build_init(&build);
+	cly_build_init(&build);
 
-	cli_lys_foreach_module(context, m, mod) {
-		cli_build_push(&build, cli_build_process_module, NULL);
+	srepo_sch_foreach_module(context->lyctx, m, mod) {
+		cly_build_push(&build, cly_build_process_module, NULL);
 
 		if (mod->compiled->data) {
-			ret = cli_lys_walk_module(context,
-			                          mod,
-			                          cli_build_tree,
-			                          &build);
-			if (ret)
+			ret = srepo_sch_walk_module(mod,
+			                            cly_build_tree,
+			                            &build);
+			if (ret != SR_ERR_OK)
 				break;
 		}
 
-		cli_assert(cli_build_count(&build) == 1);
-		cli_build_clear(&build);
+		cly_assert(cly_build_count(&build) == 1);
+		cly_build_clear(&build);
 	}
 
-	cli_build_fini(&build);
+	cly_build_fini(&build);
 
-	return ret;
+	return -EPERM;
 }

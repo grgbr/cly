@@ -1,48 +1,48 @@
-#ifndef _CLI_PATH_H
-#define _CLI_PATH_H
+#ifndef _CLY_PATH_H
+#define _CLY_PATH_H
 
 #include "arg.h"
 
-#define CLI_PATH_MAX \
-	CLI_ARG_MAX
+#define CLY_PATH_MAX \
+	CLY_ARG_MAX
 
-#define CLI_PATH_NAME_MAX (128)
-#if CLI_PATH_NAME_MAX <= 64
+#define CLY_PATH_NAME_MAX (128)
+#if CLY_PATH_NAME_MAX <= 64
 #error Path name length MUST conform to section 6.2 of RFC 7950 !
 #endif
-#if CLI_PATH_MAX <= CLI_PATH_NAME_MAX
+#if CLY_PATH_MAX <= CLY_PATH_NAME_MAX
 #error Maximum path length not large enough !
-#endif /* CLI_PATH_MAX <= CLI_PATH_NAME_MAX */
+#endif /* CLY_PATH_MAX <= CLY_PATH_NAME_MAX */
 
-#define CLI_PATH_INIT_NR (CLI_PATH_MAX / CLI_PATH_NAME_MAX)
-#if CLI_PATH_INIT_NR < 4
-#undef CLI_PATH_INIT_NR
-#define CLI_PATH_INIT_NR (4)
-#endif /* CLI_PATH_INIT_NR < 4 */
+#define CLY_PATH_INIT_NR (CLY_PATH_MAX / CLY_PATH_NAME_MAX)
+#if CLY_PATH_INIT_NR < 4
+#undef CLY_PATH_INIT_NR
+#define CLY_PATH_INIT_NR (4)
+#endif /* CLY_PATH_INIT_NR < 4 */
 
-struct cli_path_comp {
+struct cly_path_comp {
 	const char * str;
 	size_t       len;
 };
 
-#define cli_path_assert_comp(_comp) \
-	cli_assert(_comp); \
-	cli_assert((_comp)->str); \
-	cli_assert((_comp)->len); \
-	cli_assert(!cli_path_comp_isok((_comp)->str, (_comp)->len))
+#define cly_path_assert_comp(_comp) \
+	cly_assert(_comp); \
+	cly_assert((_comp)->str); \
+	cly_assert((_comp)->len); \
+	cly_assert(!cly_path_comp_isok((_comp)->str, (_comp)->len))
 
 extern const char *
-cli_path_strerror(int error);
+cly_path_strerror(int error);
 
-enum cli_path_comp_kind {
-	CLI_PATH_REG_COMP_KIND,   /* Regular path component. */
-	CLI_PATH_UPPER_COMP_KIND, /* Upper directory, i.e., `..' */
-	CLI_PATH_CURR_COMP_KIND,  /* Current directory, i.e., `.' */
-	CLI_PATH_COMP_KIND_NR     /* Invalid component type. */
+enum cly_path_comp_kind {
+	CLY_PATH_REG_COMP_KIND,   /* Regular path component. */
+	CLY_PATH_UPPER_COMP_KIND, /* Upper directory, i.e., `..' */
+	CLY_PATH_CURR_COMP_KIND,  /* Current directory, i.e., `.' */
+	CLY_PATH_COMP_KIND_NR     /* Invalid component type. */
 };
 
-extern enum cli_path_comp_kind
-cli_path_comp_kind(const struct cli_path_comp * component);
+extern enum cly_path_comp_kind
+cly_path_comp_kind(const struct cly_path_comp * component);
 
 /*
  * Validate a component over the length given in argument.
@@ -50,37 +50,37 @@ cli_path_comp_kind(const struct cli_path_comp * component);
  * To keep compliant with YANG identifiers, path component name :
  * - starts with a [a-zA-Z_] character ;
  * - is followed by zero or more [a-zA-Z0-9_-] characters ;
- * - and its entire length may be composed of up to (CLI_PATH_NAME_MAX - 1)
+ * - and its entire length may be composed of up to (CLY_PATH_NAME_MAX - 1)
  *   characters.
  * See section 6.2 of RFC 7950 for more informations.
  */
 extern int
-cli_path_comp_isok(const char * component, size_t length);
+cly_path_comp_isok(const char * component, size_t length);
 
 extern int
-cli_path_comp_ncmp(const struct cli_path_comp * component,
+cly_path_comp_ncmp(const struct cly_path_comp * component,
                    const char *                 string,
                    size_t                       length);
 
 extern int
-cli_path_comp_cmp(const struct cli_path_comp * component,
+cly_path_comp_cmp(const struct cly_path_comp * component,
                   const char *                 string);
 
-struct cli_path {
+struct cly_path {
 	unsigned int           head;
 	unsigned int           cnt;
 	unsigned int           nr;
-	struct cli_path_comp * comps;
+	struct cly_path_comp * comps;
 };
 
-#define cli_path_assert(_stk) \
-	cli_assert(_stk); \
-	cli_assert((_stk)->nr); \
-	cli_assert((_stk)->head < (_stk)->nr); \
-	cli_assert((_stk)->cnt <= (_stk)->nr); \
-	cli_assert((_stk)->comps)
+#define cly_path_assert(_stk) \
+	cly_assert(_stk); \
+	cly_assert((_stk)->nr); \
+	cly_assert((_stk)->head < (_stk)->nr); \
+	cly_assert((_stk)->cnt <= (_stk)->nr); \
+	cly_assert((_stk)->comps)
 
-#define cli_path_foreach_comp(_path, _indx, _cnt, _comp) \
+#define cly_path_foreach_comp(_path, _indx, _cnt, _comp) \
 	for (_indx = (_path)->head, \
 	     _cnt = (_path)->cnt, \
 	     _comp = &(_path)->comps[_indx]; \
@@ -91,7 +91,7 @@ struct cli_path {
 	     _cnt = (_cnt) - 1, \
 	     _comp = &(_path)->comps[_indx])
 
-#define cli_path_foreach_comp_continue(_path, _indx, _cnt, _comp) \
+#define cly_path_foreach_comp_continue(_path, _indx, _cnt, _comp) \
 	for (_indx = ((_indx) + 1) % (_path)->nr, \
 	     _cnt = (_cnt) - 1, \
 	     _comp = &(_path)->comps[_indx]; \
@@ -102,7 +102,7 @@ struct cli_path {
 	     _cnt = (_cnt) - 1, \
 	     _comp = &(_path)->comps[_indx])
 
-#define cli_path_foreach_comp_from(_path, _indx, _cnt, _comp) \
+#define cly_path_foreach_comp_from(_path, _indx, _cnt, _comp) \
 	for (; \
 	     _cnt; \
 	     \
@@ -111,59 +111,59 @@ struct cli_path {
 	     _comp = &(_path)->comps[_indx])
 
 static inline unsigned int
-cli_path_comp_count(const struct cli_path * path)
+cly_path_comp_count(const struct cly_path * path)
 {
-	cli_path_assert(path);
+	cly_path_assert(path);
 
 	return path->cnt;
 }
 
 extern ssize_t
-cli_path_mkrel(struct cli_path * path, char * string, size_t size);
+cly_path_mkrel(struct cly_path * path, char * string, size_t size);
 
 extern ssize_t
-cli_path_mkabs(struct cli_path * path, char * string, size_t size);
+cly_path_mkabs(struct cly_path * path, char * string, size_t size);
 
 extern void
-cli_path_push_head(struct cli_path * path,
+cly_path_push_head(struct cly_path * path,
                    const char *      component,
                    size_t            length);
 
-extern const struct cli_path_comp *
-cli_path_pop_head(struct cli_path * path);
+extern const struct cly_path_comp *
+cly_path_pop_head(struct cly_path * path);
 
 extern void
-cli_path_push_tail(struct cli_path * path,
+cly_path_push_tail(struct cly_path * path,
                    const char *      component,
                    size_t            length);
 
-extern const struct cli_path_comp *
-cli_path_pop_tail(struct cli_path * path);
+extern const struct cly_path_comp *
+cly_path_pop_tail(struct cly_path * path);
 
 extern ssize_t
-cli_path_parse_comp(enum cli_path_comp_kind * kind,
+cly_path_parse_comp(enum cly_path_comp_kind * kind,
                     const char *              string,
                     size_t                    size);
 
 extern int
-cli_path_parse(struct cli_path * path, const char * string);
+cly_path_parse(struct cly_path * path, const char * string);
 
 extern void
-cli_path_init(struct cli_path * path);
+cly_path_init(struct cly_path * path);
 
 extern void
-cli_path_fini(struct cli_path * path);
+cly_path_fini(struct cly_path * path);
 
-extern struct cli_path *
-cli_path_create(void);
+extern struct cly_path *
+cly_path_create(void);
 
 extern void
-cli_path_destroy(struct cli_path * path);
+cly_path_destroy(struct cly_path * path);
 
 extern ssize_t
-cli_path_normalize(const char * path, char * norm, size_t size);
+cly_path_normalize(const char * path, char * norm, size_t size);
 
 extern int
-cli_path_isok(const char * string);
+cly_path_isok(const char * string);
 
-#endif /* _CLI_PATH_H */
+#endif /* _CLY_PATH_H */

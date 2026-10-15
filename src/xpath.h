@@ -1,11 +1,11 @@
-#ifndef _CLI_XPATH_H
-#define _CLI_XPATH_H
+#ifndef _CLY_XPATH_H
+#define _CLY_XPATH_H
 
 #include "common.h"
 
-struct cli_dir;
+struct cly_dir;
 
 extern void
-cli_xpath_build_cmd(struct cli_dir * directory);
+cly_xpath_build_cmd(struct cly_dir * directory);
 
-#endif /* _CLI_XPATH_H */
+#endif /* _CLY_XPATH_H */

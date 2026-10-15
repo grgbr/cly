@@ -1,12 +1,11 @@
-
-#ifndef _CLI_FIND_H
-#define _CLI_FIND_H
+#ifndef _CLY_FIND_H
+#define _CLY_FIND_H
 
 #include "common.h"
 
-struct cli_dir;
+struct cly_dir;
 
 extern void
-cli_find_build_cmd(struct cli_dir * directory);
+cly_find_build_cmd(struct cly_dir * directory);
 
-#endif /* _CLI_FIND_H */
+#endif /* _CLY_FIND_H */

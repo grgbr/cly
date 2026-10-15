@@ -6,70 +6,70 @@
  ******************************************************************************/
 
 #include "show.h"
-#include "lyd_table.h"
-#include "yang.h"
-#include "cmd.h"
+#include "cly.h"
+#include <srutils/srepo/data.h>
+#include <srutils/srepo/schema.h>
 
-enum cli_data_format {
-    CLI_TABLE_DATA_FMT = 0,
-    CLI_JSON_DATA_FMT,
-    CLI_XML_DATA_FMT,
-    CLI_DATA_FMT_NR
+enum cly_data_format {
+	CLY_TABLE_DATA_FMT = 0,
+	CLY_JSON_DATA_FMT,
+	CLY_XML_DATA_FMT,
+	CLY_DATA_FMT_NR
 };
 
-struct cli_show_work {
-	struct cli_dir_work  super;
-	enum cli_data_format format;
+struct cly_show_work {
+	struct cly_dir_work  super;
+	enum cly_data_format format;
 };
 
-#define cli_show_assert_work(_work) \
-	cli_assert(_work); \
-	cli_assert((_work)->format >= 0); \
-	cli_assert((_work)->format < CLI_DATA_FMT_NR)
+#define cly_show_assert_work(_work) \
+	cly_assert(_work); \
+	cly_assert((_work)->format >= 0); \
+	cly_assert((_work)->format < CLY_DATA_FMT_NR)
 
-struct cli_show_cmd {
-	struct cli_cmd         super;
-	struct cli_lyd_table * table;
-	sr_get_oper_flag_t     flags;
+struct cly_show_cmd {
+	struct cly_cmd           super;
+	struct cly_srepo_table * table;
+	sr_get_oper_flag_t       flags;
 };
 
-#define cli_show_assert_cmd(_cmd) \
-	cli_assert(_cmd); \
-	cli_cmd_assert(&(_cmd)->super); \
-	cli_lyd_table_assert((_cmd)->table); \
-	cli_lyd_assert_flags((_cmd)->flags); \
-	cli_assert(((_cmd)->flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) != \
+#define cly_show_assert_cmd(_cmd) \
+	cly_assert(_cmd); \
+	cly_cmd_assert(&(_cmd)->super); \
+	cly_srepo_table_assert((_cmd)->table); \
+	srepo_dat_assert_get_flags((_cmd)->flags); \
+	cly_assert(((_cmd)->flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) != \
 	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG))
 
 #warning TODO: implement arbitrary output stream for pager support.
 static int
-cli_show_table(const struct cli_cmd *     command,
-               struct cli_lyd_table *     table,
+cly_show_table(const struct cly_cmd *     command,
+               struct cly_srepo_table *   table,
                sr_get_oper_flag_t         flags,
-               const struct cli_context * context)
+               const struct cly_context * context)
 {
-	cli_show_assert_cmd((const struct cli_show_cmd *)command);
-	cli_lyd_table_assert(table);
-	cli_lyd_assert_flags(flags);
-	cli_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
+	cly_show_assert_cmd((const struct cly_show_cmd *)command);
+	cly_srepo_table_assert(table);
+	srepo_dat_assert_get_flags(flags);
+	cly_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
 	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG));
-	cli_assert_context(context);
+	cly_assert_context(context);
 
 	int ret;
 
-	ret = cli_table_load((struct cli_table *)table,
+	ret = cly_table_load((struct cly_table *)table,
 	                     context,
 	                     (void *)flags);
 	if (ret) {
-		cli_cmd_log(command,
+		cly_cmd_log(command,
 		            "cannot load table data: %s.",
 		            sr_strerror(ret));
 		return -ENOMSG;
 	}
 
-	ret = cli_table_show((const struct cli_table *)table, false, stdout);
+	ret = cly_table_show((const struct cly_table *)table, false, stdout);
 	if (ret) {
-		cli_cmd_log(command,
+		cly_cmd_log(command,
 		            "cannot show table data: %s.",
 		            strerror(-ret));
 		return -ENOMSG;
@@ -80,62 +80,57 @@ cli_show_table(const struct cli_cmd *     command,
 
 #warning TODO: implement arbitrary output stream for pager support.
 static int
-cli_show_format(const struct cli_cmd *     command,
+cly_show_format(const struct cly_cmd *     command,
                 const struct lysc_node *   schema,
                 sr_get_oper_flag_t         flags,
                 LYD_FORMAT                 format,
-                const struct cli_context * context)
+                const struct cly_context * context)
 {
-	cli_show_assert_cmd((const struct cli_show_cmd *)command);
-	cli_assert(schema);
-	cli_lyd_assert_flags(flags);
-	cli_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
+	cly_show_assert_cmd((const struct cly_show_cmd *)command);
+	cly_assert(schema);
+	srepo_dat_assert_get_flags(flags);
+	cly_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
 	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG));
-	cli_assert((format == LYD_JSON) || (format == LYD_XML));
-	cli_assert_context(context);
+	cly_assert((format == LYD_JSON) || (format == LYD_XML));
+	cly_assert_context(context);
 
 	sr_data_t * data;
-	int         ret;
+	sr_error_t  ret;
 
-	ret = cli_lyd_load_data_from_schema(context,
-	                                    schema,
-	                                    2,
-	                                    flags,
-	                                    &data);
-	if (ret) {
-		cli_cmd_log(command, "cannot load data: %s.", sr_strerror(ret));
+	ret = srepo_sch_load_data(context->sess,
+	                          schema,
+	                          2,
+	                          flags,
+	                          &data);
+	if (ret != SR_ERR_OK) {
+		cly_cmd_log(command, "cannot load data: %s.", sr_strerror(ret));
 		return -ENOMSG;
 	}
 
-	ret = lyd_print_all(context->lyout,
-	                    data->tree,
-	                    format,
-	                    LYD_PRINT_WD_ALL_TAG);
-	if (ret) {
-		cli_cmd_log(command, "cannot show data: %s.", ly_strerr(ret));
-		ret = -EBADR;
-	}
+	ret = srepo_dat_print_data(data, format, context->lyout);
+	if (ret != SR_ERR_OK)
+		cly_cmd_log(command, "cannot show data: %s.", sr_strerror(ret));
 
-	cli_lyd_unload_data(data);
+	srepo_dat_release_data(data);
 
 	return -EBADR;
 }
 
 static int
-cli_show_exec_work(struct cli_work * work, struct cli_context * context)
+cly_show_exec_work(struct cly_work * work, struct cly_context * context)
 {
-	cli_show_assert_work((const struct cli_show_work *)work);
-	cli_show_assert_cmd((const struct cli_show_cmd *)
-	                    (((const struct cli_show_work *)work)->super.cmd));
-	cli_assert_context(context);
+	cly_show_assert_work((const struct cly_show_work *)work);
+	cly_show_assert_cmd((const struct cly_show_cmd *)
+	                    (((const struct cly_show_work *)work)->super.cmd));
+	cly_assert_context(context);
 
-	const struct cli_show_work * wk = (const struct cli_show_work *)work;
-	const struct cli_show_cmd *  cmd = (const struct cli_show_cmd *)
+	const struct cly_show_work * wk = (const struct cly_show_work *)work;
+	const struct cly_show_cmd *  cmd = (const struct cly_show_cmd *)
 	                                   wk->super.cmd;
-	const struct cli_dir *       dir;
+	const struct cly_dir *       dir;
 	int                          ret;
 
-	ret = cli_dir_work_search(&wk->super, context, &dir);
+	ret = cly_dir_work_search(&wk->super, context, &dir);
 	if (ret)
 		return ret;
 
@@ -144,23 +139,23 @@ cli_show_exec_work(struct cli_work * work, struct cli_context * context)
 	 * informations.
 	 */
 	switch (wk->format) {
-	case CLI_TABLE_DATA_FMT:
-		ret = cli_show_table(&cmd->super,
+	case CLY_TABLE_DATA_FMT:
+		ret = cly_show_table(&cmd->super,
 		                     cmd->table,
 		                     cmd->flags,
 		                     context);
 		break;
 
-	case CLI_JSON_DATA_FMT:
-		ret = cli_show_format(&cmd->super,
+	case CLY_JSON_DATA_FMT:
+		ret = cly_show_format(&cmd->super,
 		                      dir->sch_node,
 		                      cmd->flags,
 		                      LYD_JSON,
 		                      context);
 		break;
 
-	case CLI_XML_DATA_FMT:
-		ret = cli_show_format(&cmd->super,
+	case CLY_XML_DATA_FMT:
+		ret = cly_show_format(&cmd->super,
 		                      dir->sch_node,
 		                      cmd->flags,
 		                      LYD_XML,
@@ -168,166 +163,166 @@ cli_show_exec_work(struct cli_work * work, struct cli_context * context)
 		break;
 
 	default:
-		cli_assert(0);
+		cly_assert(0);
 	}
 
 	return ret;
 }
 
-static const struct cli_work_ops cli_show_work_ops = {
-	.exec    = cli_show_exec_work,
-	.release = cli_dir_work_release
+static const struct cly_work_ops cly_show_work_ops = {
+	.exec    = cly_show_exec_work,
+	.release = cly_dir_work_release
 };
 
 static int
-cli_show_parse_cmd(const struct cli_cmd * command,
-                   const struct cli_dir * directory,
-                   struct cli_context *   context,
+cly_show_parse_cmd(const struct cly_cmd * command,
+                   const struct cly_dir * directory,
+                   struct cly_context *   context,
                    int                    argc,
                    const char * const     argv[])
 {
-	cli_show_assert_cmd((const struct cli_show_cmd *)command);
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_assert(argv);
+	cly_show_assert_cmd((const struct cly_show_cmd *)command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(argv);
 
-	struct cli_show_work * wk;
+	struct cly_show_work * wk;
 	int                    ret;
 
 	/* Cannot fail. */
-	wk = (struct cli_show_work *)
-	     cli_dir_work_create(sizeof(*wk), command, &cli_show_work_ops);
-	wk->format = CLI_TABLE_DATA_FMT;
+	wk = (struct cly_show_work *)
+	     cly_dir_work_create(sizeof(*wk), command, &cly_show_work_ops);
+	wk->format = CLY_TABLE_DATA_FMT;
 
-	ret = cli_cmd_parse_args(command, directory, context, argc, argv, wk);
+	ret = cly_cmd_parse_args(command, directory, context, argc, argv, wk);
 	if (ret < 0)
 		goto destroy;
 
-	cli_assert(ret == argc);
-	ret = cli_sched_work(context, (struct cli_work *)wk);
+	cly_assert(ret == argc);
+	ret = cly_sched_work(context, (struct cly_work *)wk);
 	if (ret) {
-		cli_cmd_log(command, "cannot schedule work.");
+		cly_cmd_log(command, "cannot schedule work.");
 		goto destroy;
 	}
 
 	return argc;
 
 destroy:
-	cli_dir_work_destroy((struct cli_dir_work *)wk);
+	cly_dir_work_destroy((struct cly_dir_work *)wk);
 
 	return ret;
 }
 
 static void
-cli_show_fini_cmd(struct cli_cmd * command)
+cly_show_fini_cmd(struct cly_cmd * command)
 {
-	struct cli_lyd_table * tbl = ((struct cli_show_cmd *)command)->table;
+	struct cly_srepo_table * tbl = ((struct cly_show_cmd *)command)->table;
 
-	cli_lyd_table_fini(tbl);
-	cli_free(tbl);
+	cly_srepo_table_fini(tbl);
+	cly_free(tbl);
 }
 
-static const struct cli_cmd_ops cli_show_cmd_ops = {
-	.parse    = cli_show_parse_cmd,
-	.complete = cli_cmd_complete_args,
-	.fini     = cli_show_fini_cmd
+static const struct cly_cmd_ops cly_show_cmd_ops = {
+	.parse    = cly_show_parse_cmd,
+	.complete = cly_cmd_complete_args,
+	.fini     = cly_show_fini_cmd
 };
 
 static int
-cli_show_on_table_match(const struct cli_arg * argument __cli_unused,
-                        const struct cli_cmd * command __cli_unused,
-                        const struct cli_dir * directory __cli_unused,
-                        struct cli_context *   context __cli_unused,
-                        int                    argc __cli_unused,
-                        const char * const     argv[] __cli_unused,
+cly_show_on_table_match(const struct cly_arg * argument __unused,
+                        const struct cly_cmd * command __unused,
+                        const struct cly_dir * directory __unused,
+                        struct cly_context *   context __unused,
+                        int                    argc __unused,
+                        const char * const     argv[] __unused,
                         void *                 data)
 {
-	((struct cli_show_work *)data)->format = CLI_TABLE_DATA_FMT;
+	((struct cly_show_work *)data)->format = CLY_TABLE_DATA_FMT;
 
 	return 0;
 }
 
 static int
-cli_show_on_json_match(const struct cli_arg * argument __cli_unused,
-                       const struct cli_cmd * command __cli_unused,
-                       const struct cli_dir * directory __cli_unused,
-                       struct cli_context *   context __cli_unused,
-                       int                    argc __cli_unused,
-                       const char * const     argv[] __cli_unused,
+cly_show_on_json_match(const struct cly_arg * argument __unused,
+                       const struct cly_cmd * command __unused,
+                       const struct cly_dir * directory __unused,
+                       struct cly_context *   context __unused,
+                       int                    argc __unused,
+                       const char * const     argv[] __unused,
                        void *                 data)
 {
-	((struct cli_show_work *)data)->format = CLI_JSON_DATA_FMT;
+	((struct cly_show_work *)data)->format = CLY_JSON_DATA_FMT;
 
 	return 0;
 }
 
 static int
-cli_show_on_xml_match(const struct cli_arg * argument __cli_unused,
-                       const struct cli_cmd * command __cli_unused,
-                       const struct cli_dir * directory __cli_unused,
-                       struct cli_context *   context __cli_unused,
-                       int                    argc __cli_unused,
-                       const char * const     argv[] __cli_unused,
+cly_show_on_xml_match(const struct cly_arg * argument __unused,
+                       const struct cly_cmd * command __unused,
+                       const struct cly_dir * directory __unused,
+                       struct cly_context *   context __unused,
+                       int                    argc __unused,
+                       const char * const     argv[] __unused,
                        void *                 data)
 {
-	((struct cli_show_work *)data)->format = CLI_XML_DATA_FMT;
+	((struct cly_show_work *)data)->format = CLY_XML_DATA_FMT;
 
 	return 0;
 }
 
-static const struct cli_arg_kword_term cli_show_format_terms[] = {
-	CLI_ARG_KWORD_TERM("table", cli_show_on_table_match),
-	CLI_ARG_KWORD_TERM("json",  cli_show_on_json_match),
-	CLI_ARG_KWORD_TERM("xml",   cli_show_on_xml_match),
+static const struct cly_arg_kword_term cly_show_format_terms[] = {
+	CLY_ARG_KWORD_TERM("table", cly_show_on_table_match),
+	CLY_ARG_KWORD_TERM("json",  cly_show_on_json_match),
+	CLY_ARG_KWORD_TERM("xml",   cly_show_on_xml_match),
 };
 
-typedef int cli_show_init_cmd_fn(struct cli_lyd_table *,
+typedef int cly_show_init_cmd_fn(struct cly_srepo_table *,
                                  const struct lysc_node *,
-                                 const struct cli_context *);
+                                 const struct cly_context *);
 
 static int
-cli_show_create_cmd(struct cli_show_cmd **     command,
-                    struct cli_dir *           directory,
+cly_show_create_cmd(struct cly_show_cmd **     command,
+                    struct cly_dir *           directory,
                     const struct lysc_node *   node,
                     const char *               name,
-                    cli_show_init_cmd_fn *     init,
+                    cly_show_init_cmd_fn *     init,
                     sr_get_oper_flag_t         flags,
-                    const struct cli_context * context)
+                    const struct cly_context * context)
 {
-	cli_assert(command);
-	cli_dir_assert(directory);
-	cli_assert(node);
-	cli_assert(cli_cmd_name_isok(name));
-	cli_assert(init);
-	cli_lyd_assert_flags(flags);
-	cli_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
+	cly_assert(command);
+	cly_dir_assert(directory);
+	cly_assert(node);
+	cly_assert(cly_cmd_name_isok(name));
+	cly_assert(init);
+	srepo_dat_assert_get_flags(flags);
+	cly_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
 	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG));
-	cli_assert_context(context);
+	cly_assert_context(context);
 
-	struct cli_show_cmd *       cmd;
-	struct cli_lyd_table *      tbl;
+	struct cly_show_cmd *       cmd;
+	struct cly_srepo_table *    tbl;
 	int                         err;
-	struct cli_arg *            choice;
-	struct cli_arg_kword_parm * fmt;
+	struct cly_arg *            choice;
+	struct cly_arg_kword_parm * fmt;
 
 	/*
-	 * No need to check for returned code since cli_cmd_create() cannot fail
-	 * with a command name validated thanks to cli_cmd_name_isok().
+	 * No need to check for returned code since cly_cmd_create() cannot fail
+	 * with a command name validated thanks to cly_cmd_name_isok().
 	 */
-	cli_cmd_sized_create((struct cli_cmd **)&cmd,
+	cly_cmd_sized_create((struct cly_cmd **)&cmd,
 	                     sizeof(*cmd),
 	                     name,
-	                     &cli_show_cmd_ops);
+	                     &cly_show_cmd_ops);
 
 	/*
-	 * Cannot fail since calling cli_show_make_cmd() previously made sure
+	 * Cannot fail since calling cly_show_make_cmd() previously made sure
 	 * that there is at least one candidate leaf for the directory given in
 	 * argument.
 	 */
-	tbl = cli_malloc(sizeof(*tbl));
+	tbl = cly_malloc(sizeof(*tbl));
 	err = init(tbl, node, context);
 	if (err) {
-		cli_assert(err == -ENOENT);
+		cly_assert(err == -ENOENT);
 		goto free;
 	}
 
@@ -335,67 +330,67 @@ cli_show_create_cmd(struct cli_show_cmd **     command,
 	cmd->flags = flags;
 
 	/* Cannot fail. */
-	choice = cli_arg_createn_add_choice((struct cli_node *)cmd);
-	cli_dir_work_createn_add_arg(false, (struct cli_node *)choice);
+	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
+	cly_dir_work_createn_add_arg(false, (struct cly_node *)choice);
 
 	/*
 	 * No need to check for returned code since this cannot fail with the
 	 * "format" name argument.
 	 */
-	cli_assert(sizeof("format") <= CLI_ARG_MAX);
-	cli_arg_createn_add_kword_parm(&fmt,
+	cly_assert(sizeof("format") <= CLY_ARG_MAX);
+	cly_arg_createn_add_kword_parm(&fmt,
 	                               "format",
-	                               cli_show_format_terms,
-	                               cli_array_nr(cli_show_format_terms),
-	                               (struct cli_node *)choice);
+	                               cly_show_format_terms,
+	                               stroll_array_nr(cly_show_format_terms),
+	                               (struct cly_node *)choice);
 
-	cli_dir_add_cmd(directory, &cmd->super);
+	cly_dir_add_cmd(directory, &cmd->super);
 
 	*command = cmd;
 
 	return 0;
 
 free:
-	cli_free(tbl);
-	cli_free(cmd);
+	cly_free(tbl);
+	cly_free(cmd);
 
 	return err;
 }
 
 static int
-cli_show_make_cmd(struct cli_dir *           directory,
+cly_show_make_cmd(struct cly_dir *           directory,
                   const struct lysc_node *   node,
                   const char *               name,
-                  cli_show_init_cmd_fn *     init,
+                  cly_show_init_cmd_fn *     init,
                   sr_get_oper_flag_t         flags,
-                  const struct cli_context * context)
+                  const struct cly_context * context)
 {
-	cli_dir_assert(directory);
-	cli_assert(node);
-	cli_assert(name);
-	cli_assert(init);
-	cli_lyd_assert_flags(flags);
-	cli_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
+	cly_dir_assert(directory);
+	cly_assert(node);
+	cly_assert(name);
+	cly_assert(init);
+	srepo_dat_assert_get_flags(flags);
+	cly_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
 	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG));
-	cli_assert_context(context);
+	cly_assert_context(context);
 
-	struct cli_cmd * cmd;
+	struct cly_cmd * cmd;
 	const char *     msg;
 	int              ret;
 
-	if (!cli_cmd_name_isok(name)) {
+	if (!cly_cmd_name_isok(name)) {
 		msg = "invalid name";
 		ret = -EINVAL;
 		goto err;
 	}
 
-	if (cli_dir_find_cmd(directory, name)) {
+	if (cly_dir_find_cmd(directory, name)) {
 		msg = "already exists";
 		ret = -EEXIST;
 		goto err;
 	}
 
-	ret = cli_show_create_cmd((struct cli_show_cmd **)&cmd,
+	ret = cly_show_create_cmd((struct cly_show_cmd **)&cmd,
 	                          directory,
 	                          node,
 	                          name,
@@ -403,180 +398,180 @@ cli_show_make_cmd(struct cli_dir *           directory,
 	                          flags,
 	                          context);
 	if (ret) {
-		cli_assert(ret == -ENOENT);
+		cly_assert(ret == -ENOENT);
 
-		cli_lysc_dbg(node,
-		             "'%s' show command creation ignored: "
-		             "no child schema data node found.",
-		             name);
+		cly_debug_scn(node,
+		              "'%s' show command creation ignored: "
+		              "no child schema data node found.",
+		              name);
 	}
 
 	return 0;
 
 err:
-	cli_lysc_log(node, "cannot create show command '%s': %s.", name, msg);
+	cly_log_scn(node, "cannot create show command '%s': %s.", name, msg);
 
 	return ret;
 }
 
 static bool
-cli_show_filter_config_node(const struct lysc_node * node)
+cly_show_filter_config_node(const struct lysc_node * node)
 {
-	cli_assert(node);
-	cli_assert(node->nodetype == LYS_LEAF);
+	cly_assert(node);
+	cly_assert(node->nodetype == LYS_LEAF);
 
-	return (cli_lysc_conf_flags(node) == LYS_CONFIG_W) &&
-	       !(cli_lysc_status_flags(node) &
+	return (srepo_sch_conf_flags(node) == LYS_CONFIG_W) &&
+	       !(srepo_sch_status_flags(node) &
 	         (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC));
 }
 
 static bool
-cli_show_filter_oper_node(const struct lysc_node * node)
+cly_show_filter_oper_node(const struct lysc_node * node)
 {
-	cli_assert(node);
-	cli_assert(node->nodetype == LYS_LEAF);
+	cly_assert(node);
+	cly_assert(node->nodetype == LYS_LEAF);
 
-	return (cli_lysc_conf_flags(node) == LYS_CONFIG_R) &&
-	       !(cli_lysc_status_flags(node) &
+	return (srepo_sch_conf_flags(node) == LYS_CONFIG_R) &&
+	       !(srepo_sch_status_flags(node) &
 	         (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC));
 }
 
 static int
-cli_show_init_config_cmd(struct cli_lyd_table *     table,
+cly_show_init_config_cmd(struct cly_srepo_table *   table,
                          const struct lysc_node *   node,
-                         const struct cli_context * context)
+                         const struct cly_context * context)
 {
-	cli_assert(table);
-	cli_assert(node);
-	cli_assert(node->nodetype == LYS_CONTAINER);
-	cli_assert_context(context);
+	cly_assert(table);
+	cly_assert(node);
+	cly_assert(node->nodetype == LYS_CONTAINER);
+	cly_assert_context(context);
 
-	return cli_lyd_table_init(table,
-	                          (const struct lysc_node_container *)node,
-	                          cli_show_filter_config_node,
-	                          context);
+	return cly_srepo_table_init(table,
+	                            (const struct lysc_node_container *)node,
+	                            cly_show_filter_config_node,
+	                            context);
 }
 
 int
-cli_show_make_config_cmd(struct cli_dir *                   directory,
+cly_show_make_config_cmd(struct cly_dir *                   directory,
                          const struct lysc_node_container * container,
                          const char *                       name,
-                         const struct cli_context *         context)
+                         const struct cly_context *         context)
 {
-	cli_dir_assert(directory);
-	cli_assert(container);
-	cli_assert(name);
-	cli_assert_context(context);
+	cly_dir_assert(directory);
+	cly_assert(container);
+	cly_assert(name);
+	cly_assert_context(context);
 
-	return cli_show_make_cmd(directory,
+	return cly_show_make_cmd(directory,
 	                         (const struct lysc_node *)container,
 	                         name,
-	                         cli_show_init_config_cmd,
+	                         cly_show_init_config_cmd,
 	                         SR_OPER_NO_STATE,
 	                         context);
 }
 
 static int
-cli_show_init_oper_cmd(struct cli_lyd_table *     table,
+cly_show_init_oper_cmd(struct cly_srepo_table *   table,
                        const struct lysc_node *   node,
-                       const struct cli_context * context)
+                       const struct cly_context * context)
 {
-	cli_assert(table);
-	cli_assert(node);
-	cli_assert(node->nodetype == LYS_CONTAINER);
-	cli_assert_context(context);
+	cly_assert(table);
+	cly_assert(node);
+	cly_assert(node->nodetype == LYS_CONTAINER);
+	cly_assert_context(context);
 
-	return cli_lyd_table_init(table,
-	                          (const struct lysc_node_container *)node,
-	                          cli_show_filter_oper_node,
-	                          context);
+	return cly_srepo_table_init(table,
+	                            (const struct lysc_node_container *)node,
+	                            cly_show_filter_oper_node,
+	                            context);
 }
 
 int
-cli_show_make_oper_cmd(struct cli_dir *                   directory,
+cly_show_make_oper_cmd(struct cly_dir *                   directory,
                        const struct lysc_node_container * container,
                        const char *                       name,
-                       const struct cli_context *         context)
+                       const struct cly_context *         context)
 {
-	cli_dir_assert(directory);
-	cli_assert(container);
-	cli_assert(name);
-	cli_assert_context(context);
+	cly_dir_assert(directory);
+	cly_assert(container);
+	cly_assert(name);
+	cly_assert_context(context);
 
-	return cli_show_make_cmd(directory,
+	return cly_show_make_cmd(directory,
 	                         (const struct lysc_node *)container,
 	                         name,
-	                         cli_show_init_oper_cmd,
+	                         cly_show_init_oper_cmd,
 	                         SR_OPER_NO_CONFIG,
 	                         context);
 }
 
 static int
-cli_show_init_config_list_cmd(struct cli_lyd_table *     table,
+cly_show_init_config_list_cmd(struct cly_srepo_table *   table,
                               const struct lysc_node *   node,
-                              const struct cli_context * context)
+                              const struct cly_context * context)
 {
-	cli_assert(table);
-	cli_assert(node);
-	cli_assert(node->nodetype == LYS_LIST);
-	cli_assert_context(context);
+	cly_assert(table);
+	cly_assert(node);
+	cly_assert(node->nodetype == LYS_LIST);
+	cly_assert_context(context);
 
-	return cli_lyd_table_init_list(table,
-	                               (const struct lysc_node_list *)node,
-	                               cli_show_filter_config_node,
-	                               context);
+	return cly_srepo_table_init_list(table,
+	                                 (const struct lysc_node_list *)node,
+	                                 cly_show_filter_config_node,
+	                                 context);
 }
 
 int
-cli_show_make_config_list_cmd(struct cli_dir *         directory,
+cly_show_make_config_list_cmd(struct cly_dir *              directory,
                               const struct lysc_node_list * list,
                               const char *                  name,
-                              const struct cli_context *    context)
+                              const struct cly_context *    context)
 {
-	cli_dir_assert(directory);
-	cli_assert(list);
-	cli_assert(name);
-	cli_assert_context(context);
+	cly_dir_assert(directory);
+	cly_assert(list);
+	cly_assert(name);
+	cly_assert_context(context);
 
-	return cli_show_make_cmd(directory,
+	return cly_show_make_cmd(directory,
 	                         (const struct lysc_node *)list,
 	                         name,
-	                         cli_show_init_config_list_cmd,
+	                         cly_show_init_config_list_cmd,
 	                         SR_OPER_NO_STATE,
 	                         context);
 }
 
 static int
-cli_show_init_oper_list_cmd(struct cli_lyd_table *     table,
+cly_show_init_oper_list_cmd(struct cly_srepo_table *   table,
                             const struct lysc_node *   node,
-                            const struct cli_context * context)
+                            const struct cly_context * context)
 {
-	cli_assert(table);
-	cli_assert(node);
-	cli_assert(node->nodetype == LYS_LIST);
-	cli_assert_context(context);
+	cly_assert(table);
+	cly_assert(node);
+	cly_assert(node->nodetype == LYS_LIST);
+	cly_assert_context(context);
 
-	return cli_lyd_table_init_list(table,
-	                               (const struct lysc_node_list *)node,
-	                               cli_show_filter_oper_node,
-	                               context);
+	return cly_srepo_table_init_list(table,
+	                                 (const struct lysc_node_list *)node,
+	                                 cly_show_filter_oper_node,
+	                                 context);
 }
 
 int
-cli_show_make_oper_list_cmd(struct cli_dir *              directory,
+cly_show_make_oper_list_cmd(struct cly_dir *              directory,
                             const struct lysc_node_list * list,
                             const char *                  name,
-                            const struct cli_context *    context)
+                            const struct cly_context *    context)
 {
-	cli_dir_assert(directory);
-	cli_assert(list);
-	cli_assert(name);
-	cli_assert_context(context);
+	cly_dir_assert(directory);
+	cly_assert(list);
+	cly_assert(name);
+	cly_assert_context(context);
 
-	return cli_show_make_cmd(directory,
+	return cly_show_make_cmd(directory,
 	                         (const struct lysc_node *)list,
 	                         name,
-	                         cli_show_init_oper_list_cmd,
+	                         cly_show_init_oper_list_cmd,
 	                         SR_OPER_NO_CONFIG,
 	                         context);
 }

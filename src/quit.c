@@ -1,6 +1,6 @@
 #include "quit.h"
 #include "cmd.h"
-#include "cli.h"
+#include "cly.h"
 
 /******************************************************************************
  * `quit' command handling.
@@ -8,70 +8,70 @@
  ******************************************************************************/
 
 static int
-cli_quit_exec_work(struct cli_work *    work __cli_unused,
-                  struct cli_context * context __cli_unused)
+cly_quit_exec_work(struct cly_work *    work __unused,
+                   struct cly_context * context __unused)
 {
 	/*
-	 * We might use cli_shell_shutdown() but we don't want to depend on the
+	 * We might use cly_shell_shutdown() but we don't want to depend on the
 	 * shell since we might be called from the command line directly...
 	 */
 	return -ESHUTDOWN;
 }
 
-static const struct cli_work_ops cli_quit_work_ops = {
-	.exec    = cli_quit_exec_work,
-	.release = cli_null_release_work
+static const struct cly_work_ops cly_quit_work_ops = {
+	.exec    = cly_quit_exec_work,
+	.release = cly_null_release_work
 };
 
 static int
-cli_quit_parse_cmd(const struct cli_cmd * command,
-                  const struct cli_dir * directory,
-                  struct cli_context *   context,
-                  int                    argc __cli_unused,
-                  const char * const     argv[] __cli_unused)
+cly_quit_parse_cmd(const struct cly_cmd * command,
+                  const struct cly_dir * directory,
+                  struct cly_context *   context,
+                  int                    argc __unused,
+                  const char * const     argv[] __unused)
 {
-	cli_cmd_assert(command);
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_assert(argv);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(argv);
 
-	struct cli_work * wk;
+	struct cly_work * wk;
 	int               ret;
 
 	/* Cannot fail. */
-	wk = cli_create_work(sizeof(*wk), &cli_quit_work_ops);
+	wk = cly_create_work(sizeof(*wk), &cly_quit_work_ops);
 
-	ret = cli_sched_work(context, wk);
+	ret = cly_sched_work(context, wk);
 	if (ret) {
-		cli_cmd_log(command, "cannot schedule work.");
+		cly_cmd_log(command, "cannot schedule work.");
 		goto destroy;
 	}
 
 	return 0;
 
 destroy:
-	cli_destroy_work(wk);
+	cly_destroy_work(wk);
 
 	return ret;
 }
 
-static const struct cli_cmd_ops cli_quit_cmd_ops = {
-	.parse    = cli_quit_parse_cmd,
-	.complete = cli_cmd_complete_args,
-	.fini     = cli_cmd_null_fini
+static const struct cly_cmd_ops cly_quit_cmd_ops = {
+	.parse    = cly_quit_parse_cmd,
+	.complete = cly_cmd_complete_args,
+	.fini     = cly_cmd_null_fini
 };
 
 void
-cli_quit_build_cmd(struct cli_dir * directory)
+cly_quit_build_cmd(struct cly_dir * directory)
 {
-	cli_dir_assert(directory);
+	cly_dir_assert(directory);
 
-	struct cli_cmd * cmd;
+	struct cly_cmd * cmd;
 
 	/*
-	 * No need to check for returned code since cli_cmd_create() cannot fail
+	 * No need to check for returned code since cly_cmd_create() cannot fail
 	 * with the "quit" name argument.
 	 */
-	cli_assert(sizeof("quit") <= CLI_ARG_MAX);
-	cli_dir_create_cmdn_add(directory, &cmd, "quit", &cli_quit_cmd_ops);
+	cly_assert(sizeof("quit") <= CLY_ARG_MAX);
+	cly_dir_create_cmdn_add(directory, &cmd, "quit", &cly_quit_cmd_ops);
 }

@@ -1,6 +1,6 @@
 #include "pwd.h"
 #include "cmd.h"
-#include "cli.h"
+#include "cly.h"
 
 /******************************************************************************
  * `pwd' command handling.
@@ -8,86 +8,86 @@
  ******************************************************************************/
 
 static int
-cli_pwd_exec_work(struct cli_work *    work __cli_unused,
-                  struct cli_context * context)
+cly_pwd_exec_work(struct cly_work *    work __unused,
+                  struct cly_context * context)
 {
 
 	char *  path;
 	ssize_t ret;
 
-	path = cli_malloc(CLI_PATH_MAX);
-	cli_assert(path);
+	path = cly_malloc(CLY_PATH_MAX);
+	cly_assert(path);
 
-	ret = cli_dir_mkabs(cli_cwd(context), path, CLI_PATH_MAX);
+	ret = cly_dir_mkabs(cly_cwd(context), path, CLY_PATH_MAX);
 	if (ret > 0) {
 		printf("%s\n", path);
 		ret = 0;
 		goto out;
 	}
 
-	cli_log("pwd: cannot show current working directory: %s.",
-	        cli_dir_strerror(-ret));
+	cly_log("pwd: cannot show current working directory: %s.",
+	        cly_dir_strerror(-ret));
 
 out:
-	cli_free(path);
+	cly_free(path);
 
 	return ret;
 }
 
-static const struct cli_work_ops cli_pwd_work_ops = {
-	.exec    = cli_pwd_exec_work,
-	.release = cli_null_release_work
+static const struct cly_work_ops cly_pwd_work_ops = {
+	.exec    = cly_pwd_exec_work,
+	.release = cly_null_release_work
 };
 
 static int
-cli_pwd_parse_cmd(const struct cli_cmd * command,
-                  const struct cli_dir * directory,
-                  struct cli_context *   context,
-                  int                    argc __cli_unused,
-                  const char * const     argv[] __cli_unused)
+cly_pwd_parse_cmd(const struct cly_cmd * command,
+                  const struct cly_dir * directory,
+                  struct cly_context *   context,
+                  int                    argc __unused,
+                  const char * const     argv[] __unused)
 {
-	cli_cmd_assert(command);
-	cli_dir_assert(directory);
-	cli_assert_context(context);
-	cli_assert(argv);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(argv);
 
-	struct cli_work * wk;
+	struct cly_work * wk;
 	int               ret;
 
 	/* Cannot fail. */
-	wk = cli_create_work(sizeof(*wk), &cli_pwd_work_ops);
+	wk = cly_create_work(sizeof(*wk), &cly_pwd_work_ops);
 
-	ret = cli_sched_work(context, wk);
+	ret = cly_sched_work(context, wk);
 	if (ret) {
-		cli_cmd_log(command, "cannot schedule work.");
+		cly_cmd_log(command, "cannot schedule work.");
 		goto destroy;
 	}
 
 	return 0;
 
 destroy:
-	cli_destroy_work(wk);
+	cly_destroy_work(wk);
 
 	return ret;
 }
 
-static const struct cli_cmd_ops cli_pwd_cmd_ops = {
-	.parse    = cli_pwd_parse_cmd,
-	.complete = cli_cmd_complete_args,
-	.fini     = cli_cmd_null_fini
+static const struct cly_cmd_ops cly_pwd_cmd_ops = {
+	.parse    = cly_pwd_parse_cmd,
+	.complete = cly_cmd_complete_args,
+	.fini     = cly_cmd_null_fini
 };
 
 void
-cli_pwd_build_cmd(struct cli_dir * directory)
+cly_pwd_build_cmd(struct cly_dir * directory)
 {
-	cli_dir_assert(directory);
+	cly_dir_assert(directory);
 
-	struct cli_cmd * cmd;
+	struct cly_cmd * cmd;
 
 	/*
-	 * No need to check for returned code since cli_cmd_create() cannot fail
+	 * No need to check for returned code since cly_cmd_create() cannot fail
 	 * with the "pwd" name argument.
 	 */
-	cli_assert(sizeof("pwd") <= CLI_ARG_MAX);
-	cli_dir_create_cmdn_add(directory, &cmd, "pwd", &cli_pwd_cmd_ops);
+	cly_assert(sizeof("pwd") <= CLY_ARG_MAX);
+	cly_dir_create_cmdn_add(directory, &cmd, "pwd", &cly_pwd_cmd_ops);
 }

@@ -1,11 +1,11 @@
-#ifndef _CLI_BUILD_H
-#define _CLI_BUILD_H
+#ifndef _CLY_BUILD_H
+#define _CLY_BUILD_H
 
 #include "common.h"
 
-struct cli_context;
+struct cly_context;
 
 extern int
-cli_build_from_schema(struct cli_context * context);
+cly_build_from_schema(struct cly_context * context);
 
-#endif /* _CLI_BUILD_H */
+#endif /* _CLY_BUILD_H */

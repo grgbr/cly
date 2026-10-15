@@ -1,84 +1,84 @@
-#ifndef _CLI_ARG_H
-#define _CLI_ARG_H
+#ifndef _CLY_ARG_H
+#define _CLY_ARG_H
 
 #include "node.h"
 #include <string.h>
 
-#define CLI_ARG_MAX (512U)
-#if CLI_ARG_MAX > CLI_LINE_MAX
+#define CLY_ARG_MAX (512U)
+#if CLY_ARG_MAX > CLY_LINE_MAX
 #error Inconsistent maximum argument and line lengths !
 #endif
 
-struct cli_arg;
-struct cli_cmd;
-struct cli_dir;
-struct cli_context;
-struct cli_match;
+struct cly_arg;
+struct cly_cmd;
+struct cly_dir;
+struct cly_context;
+struct cly_match;
 
 /******************************************************************************
  * Argument utilities
  ******************************************************************************/
 
 extern size_t
-_cli_arg_isstr_valid(const char * string, size_t length);
+_cly_arg_isstr_valid(const char * string, size_t length);
 
 /******************************************************************************
  * Base argument handling
  ******************************************************************************/
 
-typedef int cli_arg_parse_fn(const struct cli_arg *,
-                             const struct cli_cmd *,
-                             const struct cli_dir *,
-                             struct cli_context *,
+typedef int cly_arg_parse_fn(const struct cly_arg *,
+                             const struct cly_cmd *,
+                             const struct cly_dir *,
+                             struct cly_context *,
                              int,
                              const char * const [],
                              void *);
 
-typedef void cli_arg_complete_fn(const struct cli_arg *,
-                                 const struct cli_cmd *,
-                                 const struct cli_dir *,
-                                 struct cli_context *,
+typedef void cly_arg_complete_fn(const struct cly_arg *,
+                                 const struct cly_cmd *,
+                                 const struct cly_dir *,
+                                 struct cly_context *,
                                  const char *,
                                  size_t,
                                  int,
                                  const char * const [],
-                                 struct cli_match *);
+                                 struct cly_match *);
 
-struct cli_arg_ops {
-	cli_arg_parse_fn *    parse;
-	cli_arg_complete_fn * complete;
+struct cly_arg_ops {
+	cly_arg_parse_fn *    parse;
+	cly_arg_complete_fn * complete;
 };
 
-#define cli_arg_assert_ops(_opers) \
-	cli_assert(_opers); \
-	cli_assert((_opers)->parse); \
-	cli_assert((_opers)->complete)
+#define cly_arg_assert_ops(_opers) \
+	cly_assert(_opers); \
+	cly_assert((_opers)->parse); \
+	cly_assert((_opers)->complete)
 
-struct cli_arg {
-	struct cli_node            super;
-	const struct cli_arg_ops * ops;
+struct cly_arg {
+	struct cly_node            super;
+	const struct cly_arg_ops * ops;
 };
 
-#define cli_arg_assert(_arg) \
-	cli_assert(_arg); \
-	cli_arg_assert_ops((_arg)->ops)
+#define cly_arg_assert(_arg) \
+	cly_assert(_arg); \
+	cly_arg_assert_ops((_arg)->ops)
 
 static inline int
-cli_arg_parse(const struct cli_arg * argument,
-              const struct cli_cmd * command,
-              const struct cli_dir * directory,
-              struct cli_context *   context,
+cly_arg_parse(const struct cly_arg * argument,
+              const struct cly_cmd * command,
+              const struct cly_dir * directory,
+              struct cly_context *   context,
               int                    argc,
               const char * const     argv[],
               void *                 data)
 {
-	cli_arg_assert(argument);
-	cli_assert(command);
-	cli_assert(directory);
-	cli_assert(context);
-	cli_assert(argc > 0);
-	cli_assert(argv);
-	cli_assert(argv[0]);
+	cly_arg_assert(argument);
+	cly_assert(command);
+	cly_assert(directory);
+	cly_assert(context);
+	cly_assert(argc > 0);
+	cly_assert(argv);
+	cly_assert(argv[0]);
 
 	return argument->ops->parse(argument,
 	                            command,
@@ -90,26 +90,26 @@ cli_arg_parse(const struct cli_arg * argument,
 }
 
 static inline void
-cli_arg_complete(const struct cli_arg * argument,
-                 const struct cli_cmd * command,
-                 const struct cli_dir * directory,
-                 struct cli_context *   context,
+cly_arg_complete(const struct cly_arg * argument,
+                 const struct cly_cmd * command,
+                 const struct cly_dir * directory,
+                 struct cly_context *   context,
                  const char *           word,
                  size_t                 length,
                  int                    argc,
                  const char * const     argv[],
-                 struct cli_match *     matches)
+                 struct cly_match *     matches)
 {
-	cli_arg_assert(argument);
-	cli_assert(command);
-	cli_assert(directory);
-	cli_assert(context);
-	cli_assert(word);
-	cli_assert(length < CLI_ARG_MAX);
-	cli_assert(strnlen(word, CLI_ARG_MAX) == length);
-	cli_assert(argc >= 0);
-	cli_assert(!argc || argv);
-	cli_assert(matches);
+	cly_arg_assert(argument);
+	cly_assert(command);
+	cly_assert(directory);
+	cly_assert(context);
+	cly_assert(word);
+	cly_assert(length < CLY_ARG_MAX);
+	cly_assert(strnlen(word, CLY_ARG_MAX) == length);
+	cly_assert(argc >= 0);
+	cly_assert(!argc || argv);
+	cly_assert(matches);
 
 	return argument->ops->complete(argument,
 	                               command,
@@ -123,91 +123,93 @@ cli_arg_complete(const struct cli_arg * argument,
 }
 
 static inline void
-cli_arg_add_child(struct cli_arg * argument, struct cli_arg * child)
+cly_arg_add_child(struct cly_arg * argument, struct cly_arg * child)
 {
-	cli_arg_assert(argument);
-	cli_arg_assert(child);
+	cly_arg_assert(argument);
+	cly_arg_assert(child);
 
-	cli_node_add_child(&argument->super, &child->super);
+	cly_node_add_child(&argument->super, &child->super);
 }
 
-extern struct cli_arg *
-cli_arg_create(size_t size, const struct cli_arg_ops * opers);
+extern struct cly_arg *
+cly_arg_create(size_t size, const struct cly_arg_ops * opers);
 
 static inline void
-cli_arg_destroy(struct cli_arg * argument)
+cly_arg_destroy(struct cly_arg * argument)
 {
-	cli_arg_assert(argument);
+	cly_arg_assert(argument);
 
-	cli_free(argument);
+	cly_free(argument);
 }
 
 /******************************************************************************
  * Parameter argument handling
  ******************************************************************************/
 
-struct cli_arg_parm {
-	struct cli_arg super;
+struct cly_arg_parm {
+	struct cly_arg super;
 	const char *   name;
 	size_t         len;
 };
 
 extern int
-cli_arg_create_parm(struct cli_arg_parm **     parameter,
+cly_arg_create_parm(struct cly_arg_parm **     parameter,
                     const char *               name,
-                    const struct cli_arg_ops * opers);
+                    const struct cly_arg_ops * opers);
 
 extern int
-cli_arg_createn_add_parm(struct cli_arg_parm **     parameter,
+cly_arg_createn_add_parm(struct cly_arg_parm **     parameter,
                          const char *               name,
-                         const struct cli_arg_ops * opers,
-                         struct cli_node *          cmd_or_arg);
+                         const struct cly_arg_ops * opers,
+                         struct cly_node *          cmd_or_arg);
 
 /******************************************************************************
  * Choice argument handling
  ******************************************************************************/
 
-extern struct cli_arg *
-cli_arg_create_choice(void);
+extern struct cly_arg *
+cly_arg_create_choice(void);
 
-extern struct cli_arg *
-cli_arg_createn_add_choice(struct cli_node * cmd_or_arg);
+extern struct cly_arg *
+cly_arg_createn_add_choice(struct cly_node * cmd_or_arg);
 
 /******************************************************************************
  * Keyword parameter argument handling
  ******************************************************************************/
 
-struct cli_arg_kword_term {
+struct cly_arg_kword_term {
 	const char *       value;
 	size_t             len;
-	cli_arg_parse_fn * on_match;
+	cly_arg_parse_fn * on_match;
 };
 
-#warning Use static_assert()
-#define CLI_ARG_KWORD_TERM(_value, _on_match) \
+#define CLY_ARG_KWORD_TERM(_value, _on_match) \
 	{ \
 		.value    = _value, \
-		.len      = sizeof(_value) - 1, \
+		.len      = compile_eval(_stroll_is_const(_value) && \
+		                         _stroll_is_array(_value), \
+		                         sizeof(_value) - 1, \
+		                         "constant string expected"), \
 		.on_match = _on_match \
 	}
 
-struct cli_arg_kword_parm {
-	struct cli_arg_parm               super;
+struct cly_arg_kword_parm {
+	struct cly_arg_parm               super;
 	unsigned int                      nr;
-	const struct cli_arg_kword_term * terms;
+	const struct cly_arg_kword_term * terms;
 };
 
 extern int
-cli_arg_create_kword_parm(struct cli_arg_kword_parm **      parameter,
+cly_arg_create_kword_parm(struct cly_arg_kword_parm **      parameter,
                           const char *                      name,
-                          const struct cli_arg_kword_term * terminals,
+                          const struct cly_arg_kword_term * terminals,
                           unsigned int                      nr);
 
 extern int
-cli_arg_createn_add_kword_parm(struct cli_arg_kword_parm **      parameter,
+cly_arg_createn_add_kword_parm(struct cly_arg_kword_parm **      parameter,
                                const char *                      name,
-                               const struct cli_arg_kword_term * terminals,
+                               const struct cly_arg_kword_term * terminals,
                                unsigned int                      nr,
-                               struct cli_node *                 cmd_or_arg);
+                               struct cly_node *                 cmd_or_arg);
 
-#endif /* _CLI_ARG_H */
+#endif /* _CLY_ARG_H */

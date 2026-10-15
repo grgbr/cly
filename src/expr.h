@@ -1,5 +1,5 @@
-#ifndef _CLI_EXPR_H
-#define _CLI_EXPR_H
+#ifndef _CLY_EXPR_H
+#define _CLY_EXPR_H
 
 #include "common.h"
 
@@ -7,71 +7,71 @@
  * Base command line expression handling.
  ******************************************************************************/
 
-struct cli_expr {
-	struct cli_expr * next;
+struct cly_expr {
+	struct cly_expr * next;
 	unsigned int      cnt;
 	unsigned int      nr;
 	const char **     args;
 };
 
-#define CLI_EXPR_ARGS_MAX  (CLI_LINE_MAX / 2U)
+#define CLY_EXPR_ARGS_MAX  (CLY_LINE_MAX / 2U)
 
-#define cli_expr_assert(_expr) \
-	cli_assert(_expr); \
-	cli_assert((_expr)->nr); \
-	cli_assert((_expr)->nr <= CLI_EXPR_ARGS_MAX); \
-	cli_assert((_expr)->cnt <= (_expr)->nr); \
-	cli_assert((_expr)->args)
+#define cly_expr_assert(_expr) \
+	cly_assert(_expr); \
+	cly_assert((_expr)->nr); \
+	cly_assert((_expr)->nr <= CLY_EXPR_ARGS_MAX); \
+	cly_assert((_expr)->cnt <= (_expr)->nr); \
+	cly_assert((_expr)->args)
 
 static inline unsigned int
-cli_expr_arg_cnt(const struct cli_expr * expression)
+cly_expr_arg_cnt(const struct cly_expr * expression)
 {
-	cli_expr_assert(expression);
-	cli_assert(expression->cnt);
+	cly_expr_assert(expression);
+	cly_assert(expression->cnt);
 
 	return expression->cnt;
 }
 
 static inline const char * const *
-cli_expr_args(const struct cli_expr * expression)
+cly_expr_args(const struct cly_expr * expression)
 {
-	cli_expr_assert(expression);
-	cli_assert(expression->cnt);
+	cly_expr_assert(expression);
+	cly_assert(expression->cnt);
 
 	return expression->args;
 }
 
 extern int
-cli_expr_parse_string(struct cli_expr * expression, char * string);
+cly_expr_parse_string(struct cly_expr * expression, char * string);
 
 extern void
-cli_expr_init(struct cli_expr * expression);
+cly_expr_init(struct cly_expr * expression);
 
 extern void
-cli_expr_fini(struct cli_expr * expression);
+cly_expr_fini(struct cly_expr * expression);
 
 /******************************************************************************
  * Command line expression block / sequence handling.
  ******************************************************************************/
 
-struct cli_expr_blk {
+struct cly_expr_blk {
 	unsigned int       cnt;
-	struct cli_expr *  head;
-	struct cli_expr ** tail;
+	struct cly_expr *  head;
+	struct cly_expr ** tail;
 	char *             line;
 };
 
-#define CLI_EXPR_BLK_MAX (CLI_LINE_MAX / 2U)
+#define CLY_EXPR_BLK_MAX (CLY_LINE_MAX / 4U)
 
-#define cli_expr_blk_assert(_blk) \
-	cli_assert(_blk); \
-	cli_assert((_blk)->cnt <= CLI_EXPR_BLK_MAX); \
-	cli_assert((_blk)->head || ((_blk)->tail == &(_blk)->head)); \
-	cli_assert(!(_blk)->line || (*(_blk)->line != '\0')); \
-	cli_assert(!(_blk)->line || \
-	           (strnlen((_blk)->line, CLI_LINE_MAX) < CLI_LINE_MAX))
+#define cly_expr_blk_assert(_blk) \
+	cly_assert(_blk); \
+	cly_assert((_blk)->cnt <= CLY_EXPR_BLK_MAX); \
+	cly_assert((_blk)->head || ((_blk)->tail == &(_blk)->head)); \
+	cly_assert(!(_blk)->line || (*(_blk)->line != '\0')); \
+	cly_assert(!(_blk)->line || \
+	           (strnlen((_blk)->line, CLY_LINE_MAX) < CLY_LINE_MAX))
 
-#define CLI_EXPR_BLK_INIT(_blk) \
+#define CLY_EXPR_BLK_INIT(_blk) \
 	{ \
 		.cnt  = 0, \
 		.head = NULL, \
@@ -79,29 +79,29 @@ struct cli_expr_blk {
 		.line = NULL \
 	}
 
-#define cli_expr_blk_foreach(_blk, _expr) \
+#define cly_expr_blk_foreach(_blk, _expr) \
 	for (_expr = (_blk)->head; _expr; _expr = (_expr)->next)
 
-#define cli_expr_blk_foreach_safe(_blk, _expr, _tmp) \
+#define cly_expr_blk_foreach_safe(_blk, _expr, _tmp) \
 	for (_expr = (_blk)->head; \
 	     (_expr) && (_tmp = (_expr)->next, 1); \
 	     _expr = (_tmp))
 
 extern int
-cli_expr_blk_parse_line(struct cli_expr_blk * block, char * line);
+cly_expr_blk_parse_line(struct cly_expr_blk * block, char * line);
 
 #if 0
 /* Keep this just in case we need to save parsed line into history. */
 extern ssize_t
-cli_expr_blk_make_string(const struct cli_expr_blk * block,
+cly_expr_blk_make_string(const struct cly_expr_blk * block,
                          char *                      string,
                          size_t                      size);
 #endif
 
 extern void
-cli_expr_blk_init(struct cli_expr_blk * block);
+cly_expr_blk_init(struct cly_expr_blk * block);
 
 extern void
-cli_expr_blk_fini(struct cli_expr_blk * block);
+cly_expr_blk_fini(struct cly_expr_blk * block);
 
-#endif /* _CLI_EXPR_H */
+#endif /* _CLY_EXPR_H */

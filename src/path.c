@@ -3,7 +3,7 @@
 #include <string.h>
 
 const char *
-cli_path_strerror(int error)
+cly_path_strerror(int error)
 {
 	switch (error) {
 	case EINVAL:
@@ -15,12 +15,12 @@ cli_path_strerror(int error)
 	case ENOBUFS:
 		return "not enought buffer space";
 	default:
-		cli_assert(0);
+		cly_assert(0);
 	}
 }
 
 static inline bool
-cli_path_iscomp_lead_char(const char * character)
+cly_path_iscomp_lead_char(const char * character)
 {
 	if (isalpha(*character) || (*character == '_'))
 		return true;
@@ -29,9 +29,9 @@ cli_path_iscomp_lead_char(const char * character)
 }
 
 static inline bool
-cli_path_iscomp_char(const char * character)
+cly_path_iscomp_char(const char * character)
 {
-	cli_assert(character);
+	cly_assert(character);
 
 	if (isalnum(*character) || (*character == '_') || (*character == '-'))
 		return true;
@@ -40,20 +40,20 @@ cli_path_iscomp_char(const char * character)
 }
 
 int
-cli_path_comp_isok(const char * component, size_t length)
+cly_path_comp_isok(const char * component, size_t length)
 {
-	cli_assert(component);
+	cly_assert(component);
 
 	if (!length)
 		return -ENODATA;
-	if (length >= CLI_PATH_NAME_MAX)
+	if (length >= CLY_PATH_NAME_MAX)
 		return -ENAMETOOLONG;
 
-	if (cli_path_iscomp_lead_char(component)) {
+	if (cly_path_iscomp_lead_char(component)) {
 		const char * ptr = component;
 
 		while (++ptr < &component[length]) {
-			if (!cli_path_iscomp_char(ptr))
+			if (!cly_path_iscomp_char(ptr))
 				return -EINVAL;
 		}
 
@@ -69,13 +69,13 @@ cli_path_comp_isok(const char * component, size_t length)
 }
 
 int
-cli_path_comp_ncmp(const struct cli_path_comp * component,
+cly_path_comp_ncmp(const struct cly_path_comp * component,
                    const char *                 string,
                    size_t                       length)
 {
-	cli_path_assert_comp(component);
-	cli_assert(string);
-	cli_assert(length < CLI_PATH_NAME_MAX);
+	cly_path_assert_comp(component);
+	cly_assert(string);
+	cly_assert(length < CLY_PATH_NAME_MAX);
 
 	size_t len = component->len;
 
@@ -86,56 +86,56 @@ cli_path_comp_ncmp(const struct cli_path_comp * component,
 }
 
 int
-cli_path_comp_cmp(const struct cli_path_comp * component,
+cly_path_comp_cmp(const struct cly_path_comp * component,
                   const char *                 string)
 {
 	size_t len;
 
-	len = strnlen(string, CLI_PATH_NAME_MAX);
+	len = strnlen(string, CLY_PATH_NAME_MAX);
 	if (!len)
 		return -ENODATA;
-	if (len == CLI_PATH_NAME_MAX)
+	if (len == CLY_PATH_NAME_MAX)
 		return -ENAMETOOLONG;
 
-	return cli_path_comp_ncmp(component, string, len);
+	return cly_path_comp_ncmp(component, string, len);
 }
 
 /* Return the kind of a valid (i.e., already parsed) path component. */
-enum cli_path_comp_kind
-cli_path_comp_kind(const struct cli_path_comp * component)
+enum cly_path_comp_kind
+cly_path_comp_kind(const struct cly_path_comp * component)
 {
-	cli_path_assert_comp(component);
+	cly_path_assert_comp(component);
 
 	switch (component->len) {
 	case 2:
 		if ((component->str[0] == '.') && (component->str[1] == '.'))
-			return CLI_PATH_UPPER_COMP_KIND;
+			return CLY_PATH_UPPER_COMP_KIND;
 		break;
 
 	case 1:
 		if (component->str[0] == '.')
-			return CLI_PATH_CURR_COMP_KIND;
+			return CLY_PATH_CURR_COMP_KIND;
 		break;
 
 	default:
 		break;
 	}
 
-	return CLI_PATH_REG_COMP_KIND;
+	return CLY_PATH_REG_COMP_KIND;
 }
 
 static size_t
-cli_path_length(const struct cli_path * path)
+cly_path_length(const struct cly_path * path)
 {
-	cli_path_assert(path);
+	cly_path_assert(path);
 
 	unsigned int                 c;
 	unsigned int                 cnt;
-	const struct cli_path_comp * comp;
+	const struct cly_path_comp * comp;
 	size_t                       len = 0;
 
-	cli_path_foreach_comp(path, c, cnt, comp) {
-		cli_path_assert_comp(comp);
+	cly_path_foreach_comp(path, c, cnt, comp) {
+		cly_path_assert_comp(comp);
 
 		len += comp->len;
 	}
@@ -149,10 +149,10 @@ cli_path_length(const struct cli_path * path)
 
 /* Append the content of component to string given in argument. */
 static char *
-cli_path_comp_strcat(const struct cli_path_comp * comp, char * string)
+cly_path_comp_strcat(const struct cly_path_comp * comp, char * string)
 {
-	cli_path_assert_comp(comp);
-	cli_assert(string);
+	cly_path_assert_comp(comp);
+	cly_assert(string);
 
 	memcpy(string, comp->str, comp->len);
 	
@@ -161,22 +161,22 @@ cli_path_comp_strcat(const struct cli_path_comp * comp, char * string)
 
 /* Append the content of the entire path to string given in argument. */
 static void
-cli_path_strcat(const struct cli_path * path, char * string)
+cly_path_strcat(const struct cly_path * path, char * string)
 {
-	cli_path_assert(path);
-	cli_assert(string);
+	cly_path_assert(path);
+	cly_assert(string);
 
 	char * str = string;
 
 	if (path->cnt) {
 		unsigned int                 c = path->head;
 		unsigned int                 cnt = path->cnt;
-		const struct cli_path_comp * comp;
+		const struct cly_path_comp * comp;
 
-		str = cli_path_comp_strcat(&path->comps[c], str);
-		cli_path_foreach_comp_continue(path, c, cnt, comp) {
+		str = cly_path_comp_strcat(&path->comps[c], str);
+		cly_path_foreach_comp_continue(path, c, cnt, comp) {
 			*(str++) = '/';
-			str = cli_path_comp_strcat(comp, str);
+			str = cly_path_comp_strcat(comp, str);
 		}
 	}
 
@@ -184,54 +184,54 @@ cli_path_strcat(const struct cli_path * path, char * string)
 }
 
 ssize_t
-cli_path_mkrel(struct cli_path * path, char * string, size_t size)
+cly_path_mkrel(struct cly_path * path, char * string, size_t size)
 {
-	cli_path_assert(path);
-	cli_assert(string);
-	cli_assert(size);
-	cli_assert(size <= CLI_PATH_MAX);
+	cly_path_assert(path);
+	cly_assert(string);
+	cly_assert(size);
+	cly_assert(size <= CLY_PATH_MAX);
 
 	size_t len;
 
-	len = cli_path_length(path);
+	len = cly_path_length(path);
 	if (len >=  size)
 		return -ENOBUFS;
 
-	cli_path_strcat(path, string);
+	cly_path_strcat(path, string);
 
 	return len;
 }
 
 ssize_t
-cli_path_mkabs(struct cli_path * path, char * string, size_t size)
+cly_path_mkabs(struct cly_path * path, char * string, size_t size)
 {
-	cli_path_assert(path);
-	cli_assert(string);
-	cli_assert(size);
-	cli_assert(size <= CLI_PATH_MAX);
+	cly_path_assert(path);
+	cly_assert(string);
+	cly_assert(size);
+	cly_assert(size <= CLY_PATH_MAX);
 
 	size_t len;
 
-	len = 1 + cli_path_length(path);
+	len = 1 + cly_path_length(path);
 	if (len >= size)
 		return -ENOBUFS;
 
 	string[0] = '/';
-	cli_path_strcat(path, &string[1]);
+	cly_path_strcat(path, &string[1]);
 
 	return len;
 }
 
-static const struct cli_path_comp *
-cli_path_peek_tail(const struct cli_path * path)
+static const struct cly_path_comp *
+cly_path_peek_tail(const struct cly_path * path)
 {
-	cli_path_assert(path);
+	cly_path_assert(path);
 
 	if (path->cnt) {
-		struct cli_path_comp * comp;
+		struct cly_path_comp * comp;
 
 		comp = &path->comps[(path->head + path->cnt - 1) % path->nr];
-		cli_path_assert_comp(comp);
+		cly_path_assert_comp(comp);
 
 		return comp;
 	}
@@ -240,12 +240,12 @@ cli_path_peek_tail(const struct cli_path * path)
 }
 
 static inline void
-cli_path_grow(struct cli_path * path)
+cly_path_grow(struct cly_path * path)
 {
-	cli_path_assert(path);
+	cly_path_assert(path);
 
 	if (path->cnt == path->nr) {
-		struct cli_path_comp * comps;
+		struct cly_path_comp * comps;
 		unsigned int           hcnt;  /* Count of head components. */
 		unsigned int           tcnt;  /* Count of tail components. */
 
@@ -255,7 +255,7 @@ cli_path_grow(struct cli_path * path)
 		tcnt = path->cnt - hcnt;
 
 		path->nr *= 2;
-		comps = cli_malloc(path->nr * sizeof(path->comps[0]));
+		comps = cly_malloc(path->nr * sizeof(path->comps[0]));
 
 		/*
 		 * Copy leading components first starting from the begining of
@@ -272,25 +272,25 @@ cli_path_grow(struct cli_path * path)
 
 		path->head = 0;
 
-		cli_free(path->comps);
+		cly_free(path->comps);
 		path->comps = comps;
 	}
 }
 
 void
-cli_path_push_head(struct cli_path * path,
+cly_path_push_head(struct cly_path * path,
                    const char *      component,
                    size_t            length)
 {
-	cli_path_assert(path);
-	cli_assert(component);
-	cli_assert(length);
-	cli_assert(!cli_path_comp_isok(component, length));
+	cly_path_assert(path);
+	cly_assert(component);
+	cly_assert(length);
+	cly_assert(!cly_path_comp_isok(component, length));
 
 	unsigned int           head;
-	struct cli_path_comp * comp;
+	struct cly_path_comp * comp;
 
-	cli_path_grow(path);
+	cly_path_grow(path);
 
 	head = (path->head + path->nr - 1) % path->nr;
 
@@ -302,13 +302,13 @@ cli_path_push_head(struct cli_path * path,
 	path->cnt++;
 }
 
-const struct cli_path_comp *
-cli_path_pop_head(struct cli_path * path)
+const struct cly_path_comp *
+cly_path_pop_head(struct cly_path * path)
 {
-	cli_path_assert(path);
+	cly_path_assert(path);
 
 	if (path->cnt) {
-		const struct cli_path_comp * comp;
+		const struct cly_path_comp * comp;
 
 		comp = &path->comps[path->head];
 
@@ -322,19 +322,19 @@ cli_path_pop_head(struct cli_path * path)
 }
 
 void
-cli_path_push_tail(struct cli_path * path,
+cly_path_push_tail(struct cly_path * path,
                    const char *      component,
                    size_t            length)
 {
-	cli_path_assert(path);
-	cli_assert(component);
-	cli_assert(length);
-	cli_assert(!cli_path_comp_isok(component, length));
+	cly_path_assert(path);
+	cly_assert(component);
+	cly_assert(length);
+	cly_assert(!cly_path_comp_isok(component, length));
 
 	unsigned int           tail;
-	struct cli_path_comp * comp;
+	struct cly_path_comp * comp;
 
-	cli_path_grow(path);
+	cly_path_grow(path);
 
 	tail = (path->head + path->cnt) % path->nr;
 
@@ -345,13 +345,13 @@ cli_path_push_tail(struct cli_path * path,
 	path->cnt++;
 }
 
-const struct cli_path_comp *
-cli_path_pop_tail(struct cli_path * path)
+const struct cly_path_comp *
+cly_path_pop_tail(struct cly_path * path)
 {
-	cli_path_assert(path);
+	cly_path_assert(path);
 
 	if (path->cnt) {
-		const struct cli_path_comp * comp;
+		const struct cly_path_comp * comp;
 
 		comp = &path->comps[(path->head + path->cnt - 1) % path->nr];
 
@@ -364,11 +364,11 @@ cli_path_pop_tail(struct cli_path * path)
 }
 
 static size_t
-cli_path_skip_delim(const char * string, size_t size)
+cly_path_skip_delim(const char * string, size_t size)
 {
-	cli_assert(string);
-	cli_assert(size);
-	cli_assert(size < CLI_PATH_MAX);
+	cly_assert(string);
+	cly_assert(size);
+	cly_assert(size < CLY_PATH_MAX);
 
 	const char * str = string;
 
@@ -381,36 +381,36 @@ cli_path_skip_delim(const char * string, size_t size)
 }
 
 ssize_t
-cli_path_parse_comp(enum cli_path_comp_kind * kind,
+cly_path_parse_comp(enum cly_path_comp_kind * kind,
                     const char *              string,
                     size_t                    size)
 {
-	cli_assert(kind);
-	cli_assert(string);
-	cli_assert(size);
+	cly_assert(kind);
+	cly_assert(string);
+	cly_assert(size);
 
 	const char * str = string;
 	const char * end = &string[size];
 
-	if (cli_path_iscomp_lead_char(str)) {
+	if (cly_path_iscomp_lead_char(str)) {
 		while (++str < end) {
-			if (!cli_path_iscomp_char(str))
+			if (!cly_path_iscomp_char(str))
 				break;
 		}
 
 		if ((str == end) || (*str == '/') || (*str == '\0')) {
-			*kind = CLI_PATH_REG_COMP_KIND;
+			*kind = CLY_PATH_REG_COMP_KIND;
 			return (ssize_t)(str - string);
 		}
 	}
 	else if (*str == '.') {
 		if ((size == 1) || (str[1] == '/') || (str[1] == '\0')) {
-			*kind = CLI_PATH_CURR_COMP_KIND;
+			*kind = CLY_PATH_CURR_COMP_KIND;
 			return 1;
 		}
 		else if ((str[1] == '.') &&
 		    ((size == 2) || (str[2] == '/') || (str[2] == '\0'))) {
-			*kind = CLI_PATH_UPPER_COMP_KIND;
+			*kind = CLY_PATH_UPPER_COMP_KIND;
 			return 2;
 		}
 	}
@@ -421,14 +421,14 @@ cli_path_parse_comp(enum cli_path_comp_kind * kind,
 }
 
 static void
-cli_push_upper_comp_tail(struct cli_path * path,
+cly_push_upper_comp_tail(struct cly_path * path,
                          const char *      string,
                          size_t            length,
                          bool              abspath)
 {
-	const struct cli_path_comp * last;
+	const struct cly_path_comp * last;
 
-	last = cli_path_peek_tail(path);
+	last = cly_path_peek_tail(path);
 
 	if (!abspath) {
 		/*
@@ -439,10 +439,10 @@ cli_push_upper_comp_tail(struct cli_path * path,
 		 * path.
 		 */
 		if (last &&
-		    (cli_path_comp_kind(last) == CLI_PATH_REG_COMP_KIND))
+		    (cly_path_comp_kind(last) == CLY_PATH_REG_COMP_KIND))
 			path->cnt--;
 		else
-			cli_path_push_tail(path, string, length);
+			cly_path_push_tail(path, string, length);
 	}
 	else {
 		/*
@@ -453,55 +453,55 @@ cli_push_upper_comp_tail(struct cli_path * path,
 		 * component since we are already at the root level.
 		 */
 		if (last) {
-		    cli_assert(cli_path_comp_kind(last) ==
-		               CLI_PATH_REG_COMP_KIND);
+		    cly_assert(cly_path_comp_kind(last) ==
+		               CLY_PATH_REG_COMP_KIND);
 			path->cnt--;
 		}
 	}
 }
 
 static int
-_cli_path_parse(struct cli_path * path,
+_cly_path_parse(struct cly_path * path,
                 const char *      string,
                 size_t            size,
                 bool              abspath)
 {
-	cli_path_assert(path);
-	cli_assert(string);
-	cli_assert(size);
-	cli_assert(size < CLI_PATH_MAX);
-	cli_assert(strnlen(string, CLI_PATH_MAX) == (size - 1));
+	cly_path_assert(path);
+	cly_assert(string);
+	cly_assert(size);
+	cly_assert(size < CLY_PATH_MAX);
+	cly_assert(strnlen(string, CLY_PATH_MAX) == (size - 1));
 
 	const char * str = string;
 
 	do {
 		ssize_t                 len;
-		enum cli_path_comp_kind kind;
+		enum cly_path_comp_kind kind;
 
-		len = (size_t)cli_path_skip_delim(str, size);
+		len = (size_t)cly_path_skip_delim(str, size);
 		str += len;
 		size -= len;
 		if (!size)
 			break;
 
-		len = cli_path_parse_comp(&kind, str, size);
+		len = cly_path_parse_comp(&kind, str, size);
 		if (len <= 0)
 			return len;
 
 		switch (kind) {
-		case CLI_PATH_REG_COMP_KIND:
-			cli_path_push_tail(path, str, len);
+		case CLY_PATH_REG_COMP_KIND:
+			cly_path_push_tail(path, str, len);
 			break;
 
-		case CLI_PATH_UPPER_COMP_KIND:
-			cli_push_upper_comp_tail(path, str, len, abspath);
+		case CLY_PATH_UPPER_COMP_KIND:
+			cly_push_upper_comp_tail(path, str, len, abspath);
 			break;
 
-		case CLI_PATH_CURR_COMP_KIND:
+		case CLY_PATH_CURR_COMP_KIND:
 			break;
 
 		default:
-			cli_assert(0);
+			cly_assert(0);
 		}
 
 		str += len;
@@ -512,86 +512,86 @@ _cli_path_parse(struct cli_path * path,
 }
 
 int
-cli_path_parse(struct cli_path * path, const char * string)
+cly_path_parse(struct cly_path * path, const char * string)
 {
-	cli_path_assert(path);
-	cli_assert(string);
+	cly_path_assert(path);
+	cly_assert(string);
 
 	size_t len;
 
-	len = strnlen(string, CLI_PATH_MAX);
-	if (len == CLI_PATH_MAX)
+	len = strnlen(string, CLY_PATH_MAX);
+	if (len == CLY_PATH_MAX)
 		return -ENAMETOOLONG;
 
-	return _cli_path_parse(path, string, len + 1, *string == '/');
+	return _cly_path_parse(path, string, len + 1, *string == '/');
 }
 
 void
-cli_path_init(struct cli_path * path)
+cly_path_init(struct cly_path * path)
 {
-	cli_assert(path);
+	cly_assert(path);
 
-	path->nr = CLI_PATH_INIT_NR;
+	path->nr = CLY_PATH_INIT_NR;
 	path->head = 0;
 	path->cnt = 0;
-	path->comps = cli_malloc(CLI_PATH_INIT_NR * sizeof(path->comps[0]));
+	path->comps = cly_malloc(CLY_PATH_INIT_NR * sizeof(path->comps[0]));
 }
 
 void
-cli_path_fini(struct cli_path * path)
+cly_path_fini(struct cly_path * path)
 {
-	cli_path_assert(path);
+	cly_path_assert(path);
 
-	cli_free(path->comps);
+	cly_free(path->comps);
 }
 
-struct cli_path *
-cli_path_create(void)
+struct cly_path *
+cly_path_create(void)
 {
-	struct cli_path * path;
+	struct cly_path * path;
 
-	path = cli_malloc(sizeof(*path));
-	cli_assert(path);
+	path = cly_malloc(sizeof(*path));
+	cly_assert(path);
 
-	cli_path_init(path);
+	cly_path_init(path);
 
 	return path;
 }
 
 void
-cli_path_destroy(struct cli_path * path)
+cly_path_destroy(struct cly_path * path)
 {
-	cli_path_assert(path);
+	cly_path_assert(path);
 
-	cli_path_fini(path);
-	cli_free(path);
+	cly_path_fini(path);
+	cly_free(path);
 }
 
 ssize_t
-cli_path_normalize(const char * path, char * norm, size_t size)
+cly_path_normalize(const char * path, char * norm, size_t size)
 {
-	cli_assert(path);
-	cli_assert(norm);
-	cli_assert(size);
-	cli_assert(size <= CLI_PATH_MAX);
+	cly_assert(path);
+	cly_assert(norm);
+	cly_assert(size);
+	cly_assert(size <= CLY_PATH_MAX);
 
 	if (*path != '\0') {
-		struct cli_path pth;
+		struct cly_path pth;
 		ssize_t         len;
 
-		cli_path_init(&pth);
+		cly_path_init(&pth);
 
-		len = cli_path_parse(&pth, path);
+		len = cly_path_parse(&pth, path);
 		if (len)
 			goto out;
 
 		if (*path != '/')
-			len = cli_path_mkrel(&pth, norm, size);
+			len = cly_path_mkrel(&pth, norm, size);
 		else
-			len = cli_path_mkabs(&pth, norm, size);
+			len = cly_path_mkabs(&pth, norm, size);
 
 out:
-		cli_path_fini(&pth);
+		cly_path_fini(&pth);
 
 		return (int)len;
 	}
@@ -603,17 +603,17 @@ out:
 }
 
 int
-cli_path_isok(const char * path)
+cly_path_isok(const char * path)
 {
-	cli_assert(path);
-	cli_assert(path[0] != '\0');
+	cly_assert(path);
+	cly_assert(path[0] != '\0');
 
-	struct cli_path pth;
+	struct cly_path pth;
 	int             ret;
 
-	cli_path_init(&pth);
-	ret = cli_path_parse(&pth, path);
-	cli_path_fini(&pth);
+	cly_path_init(&pth);
+	ret = cly_path_parse(&pth, path);
+	cly_path_fini(&pth);
 
 	return ret;
 }

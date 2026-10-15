@@ -26,32 +26,31 @@ common-ldflags := $(filter-out -DNDEBUG,$(common-ldflags))
 endif # ($(filter y,$(CONFIG_CLY_ASSERT)),)
 
 bins           := cly
-cly-objs       := yang.o
-
-#cli.c
-#build.c
-#show.c
-#lyd_table.c
-
-#list.c
-#cd.c
-#pwd.c
-#find.c
-#xpath.c
-#schema
-#quit.c
-
-#table.c
-#shell.c
-#match.c
-#expr.c
-#dir.c
-#cmd.c
-#path.c
-#arg.c
-#node.c
-#common.c
-
+cly-objs       := common.o \
+                  node.o \
+                  arg.o \
+                  match.o \
+                  expr.o \
+                  shell.o \
+                  \
+                  path.o \
+                  cmd.o \
+                  dir.o \
+                  \
+                  table.o \
+                  srepo_table.o \
+                  show.o \
+                  \
+                  list.o \
+                  cd.o \
+                  pwd.o \
+                  find.o \
+                  xpath.o \
+                  schema.o \
+                  quit.o \
+                  \
+                  build.o \
+                  cli.o
 cly-cflags     := $(common-cflags)
 cly-ldflags    := $(common-ldflags)
 cly-pkgconf    := libsrepo smartcols readline tinfo
