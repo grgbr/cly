@@ -828,10 +828,10 @@ cly_dir_work_search(const struct cly_dir_work * work,
 			 * string.
 			 */
 			cly_assert(work->orig && (work->orig[0] != '\0'));
-			cly_cmd_log(work->cmd,
-			            "'%s': %s.",
-			            work->orig,
-			            cly_dir_strerror(-ret));
+			cly_cmd_talk(work->cmd,
+			             "'%s': %s.",
+			             work->orig,
+			             cly_dir_strerror(-ret));
 
 			return ret;
 		}
@@ -894,10 +894,10 @@ out:
 		if (!mandatory)
 			return 0;
 
-		cly_cmd_log(work->cmd,
-		            "'%s': invalid path argument: %s.",
-		            path,
-		            cly_path_strerror(-ret));
+		cly_cmd_talk(work->cmd,
+		             "'%s': invalid path argument: %s.",
+		             path,
+		             cly_path_strerror(-ret));
 		return (int)ret;
 	}
 	else {

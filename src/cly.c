@@ -117,7 +117,7 @@ cly_parse(struct cly_context * context, int argc, const char * const argv[])
 		return 0;
 
 	if (!ret) {
-		cly_log("'%s': no such command.", argv[0]);
+		cly_talk("'%s': no such command.", argv[0]);
 		return -EINVAL;
 	}
 
@@ -204,16 +204,16 @@ cly_init_context(struct cly_context * context, const char * const * style)
 	                         1,
 	                         NULL);
 	if (err != SR_ERR_OK) {
-		cly_log("cannot setup repo context options: %s",
-		        sr_strerror(err));
+		cly_talk("cannot setup repo context options: %s",
+		         sr_strerror(err));
 		return err;
 	}
 #endif /* defined(CONFIG_CLY_DEBUG) */
 
 	err = sr_connect(SR_CONN_DEFAULT, &context->conn);
 	if (err != SR_ERR_OK) {
-		cly_log("cannot open repo connection: %s",
-		        sr_strerror(err));
+		cly_talk("cannot open repo connection: %s",
+		         sr_strerror(err));
 		return err;
 	}
 
@@ -221,8 +221,8 @@ cly_init_context(struct cly_context * context, const char * const * style)
 	                       SR_DS_OPERATIONAL,
 	                       &context->sess);
 	if (err != SR_ERR_OK) {
-		cly_log("cannot start repo session: %s",
-		        sr_strerror(err));
+		cly_talk("cannot start repo session: %s",
+		         sr_strerror(err));
 		goto disconnect;
 	}
 
@@ -231,8 +231,8 @@ cly_init_context(struct cly_context * context, const char * const * style)
 
 	err = ly_out_new_file(stdout, &context->lyout);
 	if (err != LY_SUCCESS) {
-		cly_log("cannot open yang output printer: %s",
-		        ly_strerr(err));
+		cly_talk("cannot open yang output printer: %s",
+		         ly_strerr(err));
 		err = SR_ERR_LY;
 		goto release;
 	}

@@ -61,17 +61,17 @@ cly_show_table(const struct cly_cmd *     command,
 	                     context,
 	                     (void *)flags);
 	if (ret) {
-		cly_cmd_log(command,
-		            "cannot load table data: %s.",
-		            sr_strerror(ret));
+		cly_cmd_talk(command,
+		             "cannot load table data: %s.",
+		             sr_strerror(ret));
 		return -ENOMSG;
 	}
 
 	ret = cly_table_show((const struct cly_table *)table, false, stdout);
 	if (ret) {
-		cly_cmd_log(command,
-		            "cannot show table data: %s.",
-		            strerror(-ret));
+		cly_cmd_talk(command,
+		             "cannot show table data: %s.",
+		             strerror(-ret));
 		return -ENOMSG;
 	}
 
@@ -103,13 +103,17 @@ cly_show_format(const struct cly_cmd *     command,
 	                          flags,
 	                          &data);
 	if (ret != SR_ERR_OK) {
-		cly_cmd_log(command, "cannot load data: %s.", sr_strerror(ret));
+		cly_cmd_talk(command,
+		             "cannot load data: %s.",
+		             sr_strerror(ret));
 		return -ENOMSG;
 	}
 
 	ret = srepo_dat_print_data(data, format, context->lyout);
 	if (ret != SR_ERR_OK)
-		cly_cmd_log(command, "cannot show data: %s.", sr_strerror(ret));
+		cly_cmd_talk(command,
+		             "cannot show data: %s.",
+		             sr_strerror(ret));
 
 	srepo_dat_release_data(data);
 
@@ -201,7 +205,7 @@ cly_show_parse_cmd(const struct cly_cmd * command,
 	cly_assert(ret == argc);
 	ret = cly_sched_work(context, (struct cly_work *)wk);
 	if (ret) {
-		cly_cmd_log(command, "cannot schedule work.");
+		cly_cmd_talk(command, "cannot schedule work.");
 		goto destroy;
 	}
 

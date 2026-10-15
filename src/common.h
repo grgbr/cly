@@ -52,7 +52,7 @@
 
 #endif /* defined(CONFIG_CLY_ASSERT) */
 
-#define cly_log(_format, ...) \
+#define cly_talk(_format, ...) \
 	fprintf(stderr, \
 	        "%s: " _format ".\n", \
 	        program_invocation_short_name, \

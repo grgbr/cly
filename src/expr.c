@@ -45,8 +45,8 @@ cly_expr_push_arg(struct cly_expr * expression,
 	char   rnd[CLY_RENDER_MAX];
 
 	if (length >= CLY_ARG_MAX) {
-		cly_log("cannot parse: '%s': expression argument too long.",
-		        cly_render_string(argument, rnd));
+		cly_talk("cannot parse: '%s': expression argument too long.",
+		         cly_render_string(argument, rnd));
 		return -ENAMETOOLONG;
 	}
 
@@ -56,10 +56,10 @@ cly_expr_push_arg(struct cly_expr * expression,
 	length = cly_expr_unquote_arg(&arg, length);
 	inval = _cly_arg_isstr_valid(arg, length);
 	if (inval) {
-		cly_log("cannot parse: '%s': "
-		        "invalid expression argument character '%c'.",
-		        cly_render_string(arg, rnd),
-		        cly_render_chr(arg[inval]));
+		cly_talk("cannot parse: '%s': "
+		         "invalid expression argument character '%c'.",
+		         cly_render_string(arg, rnd),
+		         cly_render_chr(arg[inval]));
 
 		return -EINVAL;
 	}
@@ -68,7 +68,8 @@ cly_expr_push_arg(struct cly_expr * expression,
 		unsigned int nr = expression->nr * 2;
 
 		if (nr >= CLY_EXPR_ARGS_MAX) {
-			cly_log("cannot parse: too many expression arguments.");
+			cly_talk("cannot parse: "
+			         "too many expression arguments.");
 			return -ENOBUFS;
 		}
 
@@ -111,10 +112,10 @@ cly_expr_parse_string(struct cly_expr * expression, char * string)
 			if (!delim) {
 				char rnd[CLY_RENDER_MAX];
 
-				cly_log("cannot parse: '%s': "
-				        "missing '%c' closing delimiter.",
-				        cly_render_string(str, rnd),
-				        *str);
+				cly_talk("cannot parse: '%s': "
+				         "missing '%c' closing delimiter.",
+				         cly_render_string(str, rnd),
+				         *str);
 				return -EINVAL;
 			}
 
@@ -291,7 +292,7 @@ cly_expr_blk_parse_line(struct cly_expr_blk * block, char * line)
 			break;
 
 		if (block->cnt == CLY_EXPR_BLK_MAX) {
-			cly_log("cannot parse: too many expressions.");
+			cly_talk("cannot parse: too many expressions.");
 			return -ENOBUFS;
 		}
 

@@ -25,8 +25,8 @@ cly_pwd_exec_work(struct cly_work *    work __unused,
 		goto out;
 	}
 
-	cly_log("pwd: cannot show current working directory: %s.",
-	        cly_dir_strerror(-ret));
+	cly_talk("pwd: cannot show current working directory: %s.",
+	         cly_dir_strerror(-ret));
 
 out:
 	cly_free(path);
@@ -59,7 +59,7 @@ cly_pwd_parse_cmd(const struct cly_cmd * command,
 
 	ret = cly_sched_work(context, wk);
 	if (ret) {
-		cly_cmd_log(command, "cannot schedule work.");
+		cly_cmd_talk(command, "cannot schedule work.");
 		goto destroy;
 	}
 

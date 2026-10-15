@@ -65,7 +65,7 @@ cly_chdir_parse_cmd(const struct cly_cmd * command,
 		cly_assert(ret == argc);
 		ret = cly_sched_work(context, &wk->super);
 		if (ret) {
-			cly_cmd_log(command, "cannot schedule work.");
+			cly_cmd_talk(command, "cannot schedule work.");
 			goto destroy;
 		}
 
@@ -77,7 +77,7 @@ destroy:
 		return ret;
 	}
 
-	cly_cmd_log(command, "invalid number of argument(s).");
+	cly_cmd_talk(command, "invalid number of argument(s).");
 
 	return -EINVAL;
 }

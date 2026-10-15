@@ -173,7 +173,7 @@ cly_arg_parse_choice(const struct cly_arg * choice,
 			return ret;
 	}
 
-	cly_cmd_log(command, "'%s': invalid argument.", argv[0]);
+	cly_cmd_talk(command, "'%s': invalid argument.", argv[0]);
 
 	return -EINVAL;
 }
@@ -328,9 +328,9 @@ cly_arg_parse_kword_parm(const struct cly_arg * argument,
 
 	str = &str[len + 1];
 	if (*str == '\0') {
-		cly_cmd_log(command,
-		            "'%s': missing parameter keyword.",
-		            parm->super.name);
+		cly_cmd_talk(command,
+		             "'%s': missing parameter keyword.",
+		             parm->super.name);
 		return -EINVAL;
 	}
 
@@ -350,9 +350,9 @@ cly_arg_parse_kword_parm(const struct cly_arg * argument,
 			return 1;
 	}
 
-	cly_cmd_log(command, "'%s': invalid %s parameter keyword.",
-	            str,
-	            parm->super.name);
+	cly_cmd_talk(command, "'%s': invalid %s parameter keyword.",
+	             str,
+	             parm->super.name);
 
 	return -EINVAL;
 }

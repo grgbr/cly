@@ -47,9 +47,9 @@ cly_cmd_parse_args(const struct cly_cmd * command,
 
 			cly_assert(ret <= (argc - cnt));
 			if (!ret) {
-				cly_cmd_log(command,
-				            "'%s': invalid argument.",
-				            argv[cnt]);
+				cly_cmd_talk(command,
+				             "'%s': invalid argument.",
+				             argv[cnt]);
 				return -EINVAL;
 			}
 			else if (ret < 0)
@@ -63,7 +63,7 @@ cly_cmd_parse_args(const struct cly_cmd * command,
 		return argc;
 	}
 
-	cly_cmd_log(command, "too many arguments.");
+	cly_cmd_talk(command, "too many arguments.");
 
 	return -EINVAL;
 }

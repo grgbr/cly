@@ -74,7 +74,7 @@ cly_shell_read_line(const struct cly_shell * shell, char ** line)
 
 	len = strnlen(ln, CLY_LINE_MAX);
 	if (len >= CLY_LINE_MAX) {
-		cly_log("invalid input line: too long.");
+		cly_talk("invalid input line: too long.");
 		ret = -ENOBUFS;
 		goto free;
 	}
@@ -107,7 +107,7 @@ cly_shell_hist_expr(const struct cly_expr_blk * block)
 
 	len = cly_expr_blk_make_string(block, ln, CLY_LINE_MAX);
 	if (len < 0) {
-		cly_log("cannot log into history: expression too long.");
+		cly_talk("cannot log into history: expression too long.");
 		goto free;
 	}
 
@@ -216,7 +216,7 @@ cly_shell_init_hist(void)
 free:
 	cly_free(cdir);
 out:
-	cly_log("cannot setup history: %s", strerror(ret));
+	cly_talk("cannot setup history: %s", strerror(ret));
 
 	return NULL;
 }
@@ -447,7 +447,7 @@ cly_shell_init(bool                         history,
 	return 0;
 
 err:
-	cly_log("cannot setup shell: %s.", strerror(EINVAL));
+	cly_talk("cannot setup shell: %s.", strerror(EINVAL));
 
 	return -EINVAL;
 }

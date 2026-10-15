@@ -49,8 +49,8 @@ struct cly_cmd {
 	cly_cmd_assert_ops((_cmd)->ops); \
 	cly_assert(cly_cmd_name_isok((_cmd)->name))
 
-#define cly_cmd_log(_cmd, _format, ...) \
-	cly_log("%s: " _format, (_cmd)->name, ## __VA_ARGS__)
+#define cly_cmd_talk(_cmd, _format, ...) \
+	cly_talk("%s: " _format, (_cmd)->name, ## __VA_ARGS__)
 
 static inline bool
 cly_cmd_name_isok(const char * name)

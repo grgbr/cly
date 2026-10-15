@@ -43,7 +43,7 @@ cly_quit_parse_cmd(const struct cly_cmd * command,
 
 	ret = cly_sched_work(context, wk);
 	if (ret) {
-		cly_cmd_log(command, "cannot schedule work.");
+		cly_cmd_talk(command, "cannot schedule work.");
 		goto destroy;
 	}
 
