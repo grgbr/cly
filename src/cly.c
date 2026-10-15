@@ -1,8 +1,6 @@
 #include "cly.h"
-#include "expr.h"
-#include "yang.h"
-#include "list.h"
 #include "build.h"
+#include "list.h"
 #include "cd.h"
 #include "pwd.h"
 #include "find.h"
@@ -16,17 +14,17 @@
  ******************************************************************************/
 
 unsigned int
-cli_term_cols(const struct cli_context * context)
+cly_term_cols(const struct cly_context * context)
 {
 #warning TODO: plug in a SIGWINCH signal handler
 
-	cli_assert_context(context);
+	cly_assert_context(context);
 
 	if (context->isatty) {
 		int cols;
 
 		rl_get_screen_size(NULL, &cols);
-		cli_assert(cols > 0);
+		cly_assert(cols > 0);
 
 		return cols;
 	}
@@ -39,33 +37,33 @@ cli_term_cols(const struct cli_context * context)
  ******************************************************************************/
 
 static void
-cli_release_workq(struct cli_context * context)
+cly_release_workq(struct cly_context * context)
 {
-	cli_assert_context(context);
+	cly_assert_context(context);
 
 	unsigned int w;
 
 	for (w = 0; w < context->wkcnt; w++)
-		cli_destroy_work(context->wkq[w]);
+		cly_destroy_work(context->wkq[w]);
 
 	context->wkcnt = 0;
 }
 
 static int
-cli_exec_workq(struct cli_context * context)
+cly_exec_workq(struct cly_context * context)
 {
-	cli_assert_context(context);
+	cly_assert_context(context);
 
 	unsigned int w;
 	int          ret;
 
 	for (w = 0, ret = 0; (w < context->wkcnt) && !ret; w++) {
-		struct cli_work * wk = context->wkq[w];
+		struct cly_work * wk = context->wkq[w];
 
 		ret = wk->ops->exec(wk, context);
 	}
 
-	cli_release_workq(context);
+	cly_release_workq(context);
 
 	return ret;
 }
@@ -75,74 +73,74 @@ cli_exec_workq(struct cli_context * context)
  ******************************************************************************/
 
 static bool
-cli_shell_ison(const struct cli_context * context)
+cly_shell_ison(const struct cly_context * context)
 {
 	return context->interact;
 }
 
 void
-cli_chdir(struct cli_context * context, const struct cli_dir * directory)
+cly_chdir(struct cly_context * context, const struct cly_dir * directory)
 {
-	cli_assert_context(context);
-	cli_dir_assert(directory);
+	cly_assert_context(context);
+	cly_dir_assert(directory);
 
-	if (cli_shell_ison(context)) {
+	if (cly_shell_ison(context)) {
 		char *  path;
 		ssize_t len;
 
-		path = cli_malloc(CLI_PATH_MAX);
-		cli_assert(path);
-		len = cli_dir_mkabs(directory, path,  CLI_PATH_MAX);
-		cli_assert(len > 0);
+		path = cly_malloc(CLY_PATH_MAX);
+		cly_assert(path);
+		len = cly_dir_mkabs(directory, path,  CLY_PATH_MAX);
+		cly_assert(len > 0);
 
-		cli_shell_set_prompt(path);
+		cly_shell_set_prompt(path);
 
-		cli_free(path);
+		cly_free(path);
 	}
 
 	context->cwd = directory;
 }
 
 static int
-cli_parse(struct cli_context * context, int argc, const char * const argv[])
+cly_parse(struct cly_context * context, int argc, const char * const argv[])
 {
-	cli_assert_context(context);
-	cli_assert_args(argc, argv);
+	cly_assert_context(context);
+	cly_assert_args(argc, argv);
 
 	int ret;
 
-	ret = cli_dir_parse_cmd(context->cwd, context, argc, argv);
+	ret = cly_dir_parse_cmd(context->cwd, context, argc, argv);
 	if (!ret && (context->cwd != &context->root))
-		ret = cli_dir_parse_cmd(&context->root, context, argc, argv);
+		ret = cly_dir_parse_cmd(&context->root, context, argc, argv);
 
 	if (ret == argc)
 		return 0;
 
 	if (!ret) {
-		cli_log("'%s': no such command.", argv[0]);
+		cly_log("'%s': no such command.", argv[0]);
 		return -EINVAL;
 	}
 
-	cli_assert(ret < 0);
+	cly_assert(ret < 0);
 
 	return ret;
 }
 
 static int
-cli_parse_expr_blk(struct cli_context *        context,
-                   const struct cli_expr_blk * expr_block)
+cly_parse_expr_blk(struct cly_context *        context,
+                   const struct cly_expr_blk * expr_block)
 {
-	cli_assert_context(context);
-	cli_assert(expr_block);
+	cly_assert_context(context);
+	cly_assert(expr_block);
 
-	const struct cli_expr * expr;
+	const struct cly_expr * expr;
 
-	cli_expr_blk_foreach(expr_block, expr) {
+	cly_expr_blk_foreach(expr_block, expr) {
 		int ret;
 
-		ret = cli_parse(context,
-		                cli_expr_arg_cnt(expr),
-		                cli_expr_args(expr));
+		ret = cly_parse(context,
+		                cly_expr_arg_cnt(expr),
+		                cly_expr_args(expr));
 		if (ret)
 			return ret;
 	}
@@ -151,23 +149,23 @@ cli_parse_expr_blk(struct cli_context *        context,
 }
 
 static void
-cli_complete(struct cli_match * matches,
+cly_complete(struct cly_match * matches,
              const char *       word,
              size_t             length,
              int                argc,
              const char * const argv[],
              void *             data)
 {
-	cli_assert(matches);
-	cli_assert(word);
-	cli_assert(length < CLI_ARG_MAX);
-	cli_assert(strnlen(word, CLI_ARG_MAX) == length);
-	cli_assert(argc >= 0);
-	cli_assert(!argc || argv);
+	cly_assert(matches);
+	cly_assert(word);
+	cly_assert(length < CLY_ARG_MAX);
+	cly_assert(strnlen(word, CLY_ARG_MAX) == length);
+	cly_assert(argc >= 0);
+	cly_assert(!argc || argv);
 
-	struct cli_context * ctx = data;
+	struct cly_context * ctx = data;
 
-	cli_dir_complete_cmd(ctx->cwd,
+	cly_dir_complete_cmd(ctx->cwd,
 	                     ctx,
 	                     word,
 	                     length,
@@ -175,7 +173,7 @@ cli_complete(struct cli_match * matches,
 	                     argv,
 	                     matches);
 	if (ctx->cwd != &ctx->root)
-		cli_dir_complete_cmd(&ctx->root,
+		cly_dir_complete_cmd(&ctx->root,
 		                     ctx,
 		                     word,
 		                     length,
@@ -184,91 +182,15 @@ cli_complete(struct cli_match * matches,
 		                     matches);
 }
 
-#if defined(CONFIG_CLY_LOG)
-
-sr_log_level_t cli_log_lvl;
-
-static void
-cli_sr_log_cb(sr_log_level_t level, const char * message)
-{
-	if (level <= cli_log_lvl) {
-		const char * lvl;
-
-		switch (level) {
-		case SR_LL_ERR:
-			lvl = "err";
-			break;
-		case SR_LL_WRN:
-			lvl = "warn";
-			break;
-		case SR_LL_INF:
-			lvl = "info";
-			break;
-		case SR_LL_VRB:
-			lvl = "verb";
-			break;
-		case SR_LL_DBG:
-			lvl = "dbg";
-			break;
-		default:
-			cli_assert(0);
-		}
-
-		cli_log("{%*.*s} repo: %s", 4, 4, lvl, message);
-	}
-}
-
-static void
-cli_setup_log(sr_log_level_t level)
-{
-	/* Disable all internal sysrepo / libyang logging messages... */
-	sr_log_stderr(SR_LL_NONE);
-
-	/* ... and setup our own logging callback instead. */
-	switch (level) {
-	case SR_LL_NONE:
-		/* Disable sysrepo / libyang logging entirely. */
-		sr_log_set_cb(NULL);
-		break;
-
-	case SR_LL_ERR:
-	case SR_LL_WRN:
-	case SR_LL_INF:
-	case SR_LL_VRB:
-	case SR_LL_DBG:
-		/*
-		 * Install our logging callback. It will always be called for
-		 * every messages, regardless of any log level.
-		 */
-		cli_log_lvl = level;
-		sr_log_set_cb(cli_sr_log_cb);
-		break;
-
-	default:
-		cli_assert(0);
-	}
-}
-
-#else  /* !defined(CONFIG_CLY_LOG) */
-
-static void
-cli_setup_log(sr_log_level_t level)
-{
-	/* Disable sysrepo / libyang logging entirely. */
-	sr_log_set_cb(NULL);
-}
-
-#endif /* defined(CONFIG_CLY_LOG) */
-
 static int
-cli_init_context(struct cli_context * context, const char * const * style)
+cly_init_context(struct cly_context * context, const char * const * style)
 {
-	cli_assert(context);
-	cli_assert(style);
+	cly_assert(context);
+	cly_assert(style);
 
 	int err;
 
-	cli_setup_log(CONFIG_CLY_LOG_SEVERITY_VALUE);
+	cly_init_log(CONFIG_CLY_LOG_SEVERITY_VALUE);
 
 #if defined(CONFIG_CLY_DEBUG)
 	/*
@@ -282,7 +204,7 @@ cli_init_context(struct cli_context * context, const char * const * style)
 	                         1,
 	                         NULL);
 	if (err != SR_ERR_OK) {
-		cli_log("cannot setup repo context options: %s",
+		cly_log("cannot setup repo context options: %s",
 		        sr_strerror(err));
 		return err;
 	}
@@ -290,7 +212,7 @@ cli_init_context(struct cli_context * context, const char * const * style)
 
 	err = sr_connect(SR_CONN_DEFAULT, &context->conn);
 	if (err != SR_ERR_OK) {
-		cli_log("cannot open repo connection: %s",
+		cly_log("cannot open repo connection: %s",
 		        sr_strerror(err));
 		return err;
 	}
@@ -299,7 +221,7 @@ cli_init_context(struct cli_context * context, const char * const * style)
 	                       SR_DS_OPERATIONAL,
 	                       &context->sess);
 	if (err != SR_ERR_OK) {
-		cli_log("cannot start repo session: %s",
+		cly_log("cannot start repo session: %s",
 		        sr_strerror(err));
 		goto disconnect;
 	}
@@ -309,14 +231,14 @@ cli_init_context(struct cli_context * context, const char * const * style)
 
 	err = ly_out_new_file(stdout, &context->lyout);
 	if (err != LY_SUCCESS) {
-		cli_log("cannot open yang output printer: %s",
+		cly_log("cannot open yang output printer: %s",
 		        ly_strerr(err));
 		err = SR_ERR_LY;
 		goto release;
 	}
 
 	context->wkcnt = 0;
-	cli_dir_init_root(&context->root);
+	cly_dir_init_root(&context->root);
 	context->cwd = &context->root;
 	context->isatty = !!isatty(STDOUT_FILENO);
 	context->colored = !!context->isatty;
@@ -335,88 +257,90 @@ disconnect:
 }
 
 static int
-cli_visitn_destroy_dir(struct cli_dir *    directory,
-                       enum cli_walk_event event,
-                       void *              data __cli_unused)
+cly_visitn_destroy_dir(struct cly_dir *    directory,
+                       enum cly_walk_event event,
+                       void *              data __unused)
 {
-	if (event == CLI_WALK_POST_EVT)
-		cli_dir_destroy(directory);
+	if (event == CLY_POST_WALK_EVT)
+		cly_dir_destroy(directory);
 
-	return CLI_WALK_CONT_RET;
+	return CLY_CONT_WALK_RET;
 }
 
 static void
-cli_fini_context(struct cli_context * context)
+cly_fini_context(struct cly_context * context)
 {
-	cli_assert_context(context);
+	cly_assert_context(context);
 
-	cli_release_workq(context);
-	cli_dir_walk_safe(&context->root, cli_visitn_destroy_dir, NULL);
-	cli_dir_fini_root(&context->root);
+	cly_release_workq(context);
+	cly_dir_walk_safe(&context->root, cly_visitn_destroy_dir, NULL);
+	cly_dir_fini_root(&context->root);
 	ly_out_free(context->lyout, NULL, 0);
 	sr_session_release_context(context->sess);
 	sr_session_stop(context->sess);
 	sr_disconnect(context->conn);
+
+	cly_fini_log();
 }
 
 /******************************************************************************
  * Top-level logic
  ******************************************************************************/
 
-static const char * const cli_the_style[] = {
-	[CLI_LABEL_STYLE_KIND]   = CLI_UNDERLINE_COLOR,
-	[CLI_VALUE_STYLE_KIND]   = NULL,
-	[CLI_DEFAULT_STYLE_KIND] = CLI_GRAY_COLOR,
-	[CLI_ERROR_STYLE_KIND]   = CLI_BOLD_RED_COLOR
+static const char * const cly_the_style[] = {
+	[CLY_LABEL_STYLE_KIND]   = CLY_UNDERLINE_COLOR,
+	[CLY_VALUE_STYLE_KIND]   = NULL,
+	[CLY_DEFAULT_STYLE_KIND] = CLY_GRAY_COLOR,
+	[CLY_ERROR_STYLE_KIND]   = CLY_BOLD_RED_COLOR
 };
 
 static int
-cli_init(struct cli_context * context)
+cly_init(struct cly_context * context)
 {
-	cli_assert(context);
+	cly_assert(context);
 
 	int ret;
 
-	ret = cli_init_context(context, cli_the_style);
+	ret = cly_init_context(context, cly_the_style);
 	if (ret)
 		return ret;
 
-	cli_list_build_cmd(&context->root);
-	cli_chdir_build_cmd(&context->root);
-	cli_pwd_build_cmd(&context->root);
-	cli_find_build_cmd(&context->root);
-	cli_xpath_build_cmd(&context->root);
-	cli_schema_build_cmd(&context->root);
-	cli_quit_build_cmd(&context->root);
+	cly_list_build_cmd(&context->root);
+	cly_chdir_build_cmd(&context->root);
+	cly_pwd_build_cmd(&context->root);
+	cly_find_build_cmd(&context->root);
+	cly_xpath_build_cmd(&context->root);
+	cly_schema_build_cmd(&context->root);
+	cly_quit_build_cmd(&context->root);
 
-	ret = cli_build_from_schema(context);
+	ret = cly_build_from_schema(context);
 	if (ret)
 		goto fini;
 
 	return 0;
 
 fini:
-	cli_fini_context(context);
+	cly_fini_context(context);
 
 	return ret;
 }
 
 static void
-cli_fini(struct cli_context * context)
+cly_fini(struct cly_context * context)
 {
-	cli_fini_context(context);
+	cly_fini_context(context);
 }
 
 int
 main(int argc, const char * const argv[])
 {
-	cli_assert(argc == 1);
-	cli_assert(argv);
+	cly_assert(argc == 1);
+	cly_assert(argv);
 
-	struct cli_context ctx;
+	struct cly_context ctx;
 	int                ret;
 
-	ret = cli_init(&ctx);
+	ret = cly_init(&ctx);
 	if (ret)
 		goto out;
 
@@ -425,23 +349,23 @@ main(int argc, const char * const argv[])
 			/* Cannot run in interactive mode... */
 			goto fini;
 
-		ret = cli_shell_init(true, " \t;\n", cli_complete, &ctx);
+		ret = cly_shell_init(true, " \t;\n", cly_complete, &ctx);
 		if (ret)
 			goto fini_shell;
 
 		ctx.interact = true;
 
 		do {
-			struct cli_expr_blk eblk = CLI_EXPR_BLK_INIT(eblk);
+			struct cly_expr_blk eblk = CLY_EXPR_BLK_INIT(eblk);
 
-			ret = cli_shell_read_expr(&eblk);
-			cli_assert(ret <= 0);
+			ret = cly_shell_read_expr(&eblk);
+			cly_assert(ret <= 0);
 			switch (ret) {
 			case 0:
 				/* General expression syntax ok. */
-				ret = cli_parse_expr_blk(&ctx, &eblk);
+				ret = cly_parse_expr_blk(&ctx, &eblk);
 				if (!ret)
-					ret = cli_exec_workq(&ctx);
+					ret = cly_exec_workq(&ctx);
 				break;
 
 			case -ESHUTDOWN:
@@ -462,24 +386,24 @@ main(int argc, const char * const argv[])
 			}
 
 			/* Release expression block resources. */
-			cli_expr_blk_fini(&eblk);
+			cly_expr_blk_fini(&eblk);
 		} while (ret != -ESHUTDOWN);
 		if (ret == -ESHUTDOWN)
 			ret = 0;
 
 fini_shell:
-		cli_shell_fini();
+		cly_shell_fini();
 	}
 	else {
-		ret = cli_parse(&ctx, argc - 1, &argv[1]);
+		ret = cly_parse(&ctx, argc - 1, &argv[1]);
 		if (ret)
 			goto fini;
 
-		ret = cli_exec_workq(&ctx);
+		ret = cly_exec_workq(&ctx);
 	}
 
 fini:
-	cli_fini(&ctx);
+	cly_fini(&ctx);
 out:
 	return (!ret) ? EXIT_SUCCESS : EXIT_FAILURE;
 }

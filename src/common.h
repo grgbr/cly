@@ -2,6 +2,7 @@
 #define _CLY_COMMON_H
 
 #include "config.h"
+#include <elog/elog.h>
 #include <srutils/srepo/xpath.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,33 +59,73 @@
 	        ## __VA_ARGS__)
 
 extern void
-cly_log_scn(const struct lysc_node * node, const char * format, ...)
-	__cly_nonull(1, 2) __printf(2, 3);
+cly_init_log(enum elog_severity severity);
 
 #if defined(CONFIG_CLY_LOG)
 
-#include <elog/elog.h>
+#define cly_scn_log(_node, _svrt, _fmt, ...) \
+	srepo_sch_log_node(_node, _svrt, "", _fmt, ## __VA_ARGS__)
+#define cly_scn_err(_node, _fmt, ...) \
+	cly_scn_log(_node, ELOG_ERR_SEVERITY, _fmt,  ## __VA_ARGS__)
+#define cly_scn_warn(_node, _fmt, ...) \
+	cly_scn_log(_node, ELOG_WARN_SEVERITY, _fmt, ## __VA_ARGS__)
+#define cly_scn_notice(_node, _fmt, ...) \
+	cly_scn_log(_node, ELOG_NOTICE_SEVERITY, _fmt, ## __VA_ARGS__)
+#define cly_scn_info(_node, _fmt, ...) \
+	cly_scn_log(_node, ELOG_INFO_SEVERITY, _fmt, ## __VA_ARGS__)
 
-extern enum elog_severity cly_log_lvl;
+#define cly_dtn_log(_node, _svrt, _fmt, ...) \
+	srepo_dat_log_node(_node, _svrt, "", _fmt, ## __VA_ARGS__)
+#define cly_dtn_err(_node, _fmt, ...) \
+	cly_dtn_log(_node, ELOG_ERR_SEVERITY, _fmt,  ## __VA_ARGS__)
+#define cly_dtn_warn(_node, _fmt, ...) \
+	cly_dtn_log(_node, ELOG_WARN_SEVERITY, _fmt, ## __VA_ARGS__)
+#define cly_dtn_notice(_node, _fmt, ...) \
+	cly_dtn_log(_node, ELOG_NOTICE_SEVERITY, _fmt, ## __VA_ARGS__)
+#define cly_dtn_info(_node, _fmt, ...) \
+	cly_dtn_log(_node, ELOG_INFO_SEVERITY, _fmt, ## __VA_ARGS__)
+
+extern void
+cly_fini_log(void);
+
+#else  /* !defined(CONFIG_CLY_LOG) */
+
+#define cly_scn_log(_node, _svrt, _fmt, ...)
+#define cly_scn_err(_node, _fmt, ...)
+#define cly_scn_warn(_node, _fmt, ...)
+#define cly_scn_notice(_node, _fmt, ...)
+#define cly_scn_info(_node, _fmt, ...)
+
+#define cly_dtn_log(_node, _svrt, _fmt, ...)
+#define cly_dtn_err(_node, _fmt, ...)
+#define cly_dtn_warn(_node, _fmt, ...)
+#define cly_dtn_notice(_node, _fmt, ...)
+#define cly_dtn_info(_node, _fmt, ...)
+
+static inline
+void
+cly_fini_log(void)
+{
+}
 
 #endif /* defined(CONFIG_CLY_LOG) */
 
 #if defined(CONFIG_CLY_DEBUG)
 
 #define cly_debug(_format, ...) \
-	((cly_log_lvl >= ELOG_DEBUG_SEVERITY) \
-	 ? (void)cly_log(_format, ## __VA_ARGS__) \
-	 : (void)0)
+	elog_debug(&cly_logger, _format ".", ## __VA_ARGS__)
 
-#define cly_debug_scn(_node, _format, ...) \
-	((cly_log_lvl >= ELOG_DEBUG_SEVERITY) \
-	 ? cly_log_scn(_node, _format, ## __VA_ARGS__) \
-	 : (void)0)
+#define cly_scn_debug(_node, _fmt, ...) \
+	cly_scn_log(_node, ELOG_DEBUG_SEVERITY, _fmt, ## __VA_ARGS__)
+
+#define cly_dtn_debug(_node, _fmt, ...) \
+	cly_dtn_log(_node, ELOG_DEBUG_SEVERITY, _fmt, ## __VA_ARGS__)
 
 #else  /* defined(CONFIG_CLY_DEBUG) */
 
 #define cly_debug(_format, ...)
-#define cly_debug_scn(_node, _format, ...)
+#define cly_scn_debug(_node, _format, ...)
+#define cly_dtn_debug(_node, _format, ...)
 
 #endif /* defined(CONFIG_CLY_DEBUG) */
 

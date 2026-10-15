@@ -126,7 +126,7 @@ cly_dir_mkabs(const struct cly_dir * directory, char * path, size_t size);
 
 extern char *
 cly_dir_xpath(const struct cly_dir * directory)
-	__cly_nonull(1) __malloc(cly_free, 1) __returns_nonull __warn_result;
+	__cly_nonull(1) __returns_nonull __warn_result;
 
 extern int
 cly_dir_show_yang(const struct cly_dir *     directory,

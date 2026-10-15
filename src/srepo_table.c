@@ -220,7 +220,8 @@ cly_srepo_table_load_list(struct cly_table *         table,
 	                        &list) == SR_ERR_OK) {
 		struct lyd_node * entry;
 
-		srepo_dat_foreach_data_tree(list, entry)
+#warning UNDERSTAND WHY WE NEED TO TRAVERSE CHILDREN !!
+		srepo_dat_foreach_data_child(list, entry)
 			cly_srepo_table_load_list_entry(table, style, entry);
 
 		srepo_dat_release_data(list);

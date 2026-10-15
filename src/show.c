@@ -299,7 +299,7 @@ cly_show_create_cmd(struct cly_show_cmd **     command,
 	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG));
 	cly_assert_context(context);
 
-	struct cly_show_cmd *       cmd;
+	struct cly_show_cmd *       cmd = cmd;
 	struct cly_srepo_table *    tbl;
 	int                         err;
 	struct cly_arg *            choice;
@@ -313,6 +313,7 @@ cly_show_create_cmd(struct cly_show_cmd **     command,
 	                     sizeof(*cmd),
 	                     name,
 	                     &cly_show_cmd_ops);
+	cly_assert(cmd);
 
 	/*
 	 * Cannot fail since calling cly_show_make_cmd() previously made sure
@@ -400,7 +401,7 @@ cly_show_make_cmd(struct cly_dir *           directory,
 	if (ret) {
 		cly_assert(ret == -ENOENT);
 
-		cly_debug_scn(node,
+		cly_scn_debug(node,
 		              "'%s' show command creation ignored: "
 		              "no child schema data node found.",
 		              name);
@@ -409,7 +410,7 @@ cly_show_make_cmd(struct cly_dir *           directory,
 	return 0;
 
 err:
-	cly_log_scn(node, "cannot create show command '%s': %s.", name, msg);
+	cly_scn_err(node, "cannot create show command '%s': %s.", name, msg);
 
 	return ret;
 }

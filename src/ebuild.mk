@@ -50,10 +50,11 @@ cly-objs       := common.o \
                   quit.o \
                   \
                   build.o \
-                  cli.o
+                  cly.o
 cly-cflags     := $(common-cflags)
 cly-ldflags    := $(common-ldflags)
-cly-pkgconf    := libsrepo smartcols readline tinfo
+cly-pkgconf    := libsrepo smartcols readline tinfo \
+                  $(call kconf_enabled,CLY_LOG,libelog)
 
 # ex: filetype=make :
 

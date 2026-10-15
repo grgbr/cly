@@ -1,0 +1,103 @@
+################################################################################
+# SPDX-License-Identifier: LGPL-3.0-only
+#
+# This file is part of srutils.
+# Copyright (C) 2026 Grégor Boirie <gregor.boirie@free.fr>
+################################################################################
+
+mainmenu "Command Line Yang build configuration"
+
+config CLY_ASSERT
+	bool "Assertion"
+	default n
+	help
+	  Build cly with assertions enabled to perform full verification of
+	  arguments consistency as well as internal state.
+
+config CLY_LINE_MAX
+	int "Maximum input line size"
+	range 128 4096
+	default 1024
+	help
+	  Maximum size of command line input string including terminating NULL
+	  byte.
+
+config CLY_LOG
+	bool "Logging"
+	default n
+	help
+	  Build cly with support for logging messages through elog.
+
+
+
+choice
+	prompt "Logging default severity"
+	depends on CLY_LOG
+	default CLY_LOG_SEVERITY_WARNING
+	help
+	  By default, srplug daemon logging messages with severity greater that
+	  this won't be sent to stdio(3) stream logger.
+	  See syslog(3) levels for more informations about available severities.
+
+config CLY_LOG_SEVERITY_EMERG
+	bool "emergency"
+
+config CLY_LOG_SEVERITY_ALERT
+	bool "alert"
+
+config CLY_LOG_SEVERITY_CRIT
+	bool "critical"
+
+config CLY_LOG_SEVERITY_ERR
+	bool "error"
+
+config CLY_LOG_SEVERITY_WARNING
+	bool "warning"
+
+config CLY_LOG_SEVERITY_NOTICE
+	bool "notice"
+
+config CLY_LOG_SEVERITY_INFO
+	bool "information"
+
+config CLY_LOG_SEVERITY_DEBUG
+	bool "debug"
+	depends on CLY_DEBUG
+
+endchoice
+
+config CLY_LOG_SEVERITY_VALUE
+	int
+	depends on CLY_LOG
+	default 0 if CLY_LOG_SEVERITY_EMERG
+	default 1 if CLY_LOG_SEVERITY_ALERT
+	default 2 if CLY_LOG_SEVERITY_CRIT
+	default 3 if CLY_LOG_SEVERITY_ERR
+	default 4 if CLY_LOG_SEVERITY_WARNING
+	default 5 if CLY_LOG_SEVERITY_NOTICE
+	default 6 if CLY_LOG_SEVERITY_INFO
+	default 7 if CLY_LOG_SEVERITY_DEBUG
+
+config CLY_LOG_SEVERITY_STRING
+	string
+	depends on CLY_LOG
+	default "emerg" if CLY_LOG_SEVERITY_EMERG
+	default "alert" if CLY_LOG_SEVERITY_ALERT
+	default "crit" if CLY_LOG_SEVERITY_CRIT
+	default "err" if CLY_LOG_SEVERITY_ERR
+	default "warn" if CLY_LOG_SEVERITY_WARNING
+	default "notice" if CLY_LOG_SEVERITY_NOTICE
+	default "info" if CLY_LOG_SEVERITY_INFO
+	default "debug" if CLY_LOG_SEVERITY_DEBUG
+
+config CLY_DEBUG
+	bool "Debug"
+	select CLY_LOG
+	default n
+	help
+	  Build cly in debug mode, enabling additional debugging messages,
+	  additional internal state consistency checks as well as full memory
+	  cleanup logic suitable for memory error detection tools such as
+	  Valgrind's Memcheck and co.
+
+# ex: ft=kconfig:

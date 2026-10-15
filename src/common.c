@@ -1,39 +1,82 @@
 #include "common.h"
 #include <srutils/srepo/schema.h>
 
-void
-cly_log_scn(const struct lysc_node * node, const char * format, ...)
+#if defined(CONFIG_CLY_LOG)
+
+static struct elog_stdio cly_logger;
+
+static void
+cly_srlog_cb(sr_log_level_t level, const char * message)
 {
-	cly_assert(node);
-	cly_assert(format);
-	cly_assert(format[0]);
+	cly_assert(message);
 
-	char * path;
-	char * fmt;
-	int    ret;
+	enum elog_severity svrt;
 
-	path = srepo_sch_node_path(node);
-	ret = cly_asprintf(&fmt,
-	                   "%s: [path:%s]: %s.\n",
-	                   program_invocation_short_name,
-	                   path,
-	                   format);
-	srepo_free(path);
-	if (ret > 0) {
-		va_list args;
-
-		va_start(args, format);
-		vfprintf(stderr, fmt, args);
-		va_end(args);
-
-		cly_free(fmt);
+	switch (level) {
+	case SR_LL_ERR:
+		svrt = ELOG_ERR_SEVERITY;
+		break;
+	case SR_LL_WRN:
+		svrt = ELOG_WARNING_SEVERITY;
+		break;
+	case SR_LL_INF:
+		svrt = ELOG_NOTICE_SEVERITY;
+		break;
+	case SR_LL_VRB:
+		svrt = ELOG_INFO_SEVERITY;
+		break;
+	case SR_LL_DBG:
+		svrt = ELOG_DEBUG_SEVERITY;
+		break;
+	default:
+		cly_assert(0);
 	}
-	else
-		fprintf(stderr,
-		        "%s: logging failure: %s.\n",
-		        program_invocation_short_name,
-		        strerror(-ret));
+
+	elog_log((struct elog *)&cly_logger, svrt, "%s", message);
 }
+
+void
+cly_init_log(enum elog_severity severity)
+{
+	struct elog_stdio_conf conf = {
+		.super.severity = CONFIG_CLY_LOG_SEVERITY_VALUE,
+		.format         = ELOG_TAG_FMT
+	};
+
+	/* Setup our internal logger. */
+	conf.super.severity = severity;
+	elog_init_stdio(&cly_logger, &conf);
+
+	/* Disable all internal sysrepo / libyang logging messages... */
+	sr_log_stderr(SR_LL_NONE);
+
+	/*
+	 * Install our logging callback. It will always be called for
+	 * every messages, regardless of any log level.
+	 */
+	sr_log_set_cb(cly_srlog_cb);
+
+	srepo_log_setup((struct elog *)&cly_logger);
+}
+
+void
+cly_fini_log(void)
+{
+	elog_fini_stdio(&cly_logger);
+}
+
+#else  /* !defined(CONFIG_CLY_LOG) */
+
+void
+cly_init_log(enum elog_severity severity)
+{
+	/* Disable sysrepo / libyang logging entirely. */
+	sr_log_set_cb(NULL);
+
+	srepo_log_setup(NULL);
+}
+
+#endif /* defined(CONFIG_CLY_LOG) */
 
 #if defined(CONFIG_CLY_ASSERT)
 
