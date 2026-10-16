@@ -62,7 +62,7 @@ cly_show_table(const struct cly_cmd *     command,
 	                     (void *)flags);
 	if (ret) {
 		cly_cmd_talk(command,
-		             "cannot load table data: %s.",
+		             "cannot load table data: %s",
 		             sr_strerror(ret));
 		return -ENOMSG;
 	}
@@ -70,7 +70,7 @@ cly_show_table(const struct cly_cmd *     command,
 	ret = cly_table_show((const struct cly_table *)table, false, stdout);
 	if (ret) {
 		cly_cmd_talk(command,
-		             "cannot show table data: %s.",
+		             "cannot show table data: %s",
 		             strerror(-ret));
 		return -ENOMSG;
 	}
@@ -104,7 +104,7 @@ cly_show_format(const struct cly_cmd *     command,
 	                          &data);
 	if (ret != SR_ERR_OK) {
 		cly_cmd_talk(command,
-		             "cannot load data: %s.",
+		             "cannot load data: %s",
 		             sr_strerror(ret));
 		return -ENOMSG;
 	}
@@ -112,7 +112,7 @@ cly_show_format(const struct cly_cmd *     command,
 	ret = srepo_dat_print_data(data, format, context->lyout);
 	if (ret != SR_ERR_OK)
 		cly_cmd_talk(command,
-		             "cannot show data: %s.",
+		             "cannot show data: %s",
 		             sr_strerror(ret));
 
 	srepo_dat_release_data(data);
@@ -205,7 +205,7 @@ cly_show_parse_cmd(const struct cly_cmd * command,
 	cly_assert(ret == argc);
 	ret = cly_sched_work(context, (struct cly_work *)wk);
 	if (ret) {
-		cly_cmd_talk(command, "cannot schedule work.");
+		cly_cmd_talk(command, "cannot schedule work");
 		goto destroy;
 	}
 
@@ -407,14 +407,14 @@ cly_show_make_cmd(struct cly_dir *           directory,
 
 		cly_scn_debug(node,
 		              "'%s' show command creation ignored: "
-		              "no child schema data node found.",
+		              "no child schema data node found",
 		              name);
 	}
 
 	return 0;
 
 err:
-	cly_scn_err(node, "cannot create show command '%s': %s.", name, msg);
+	cly_scn_err(node, "cannot create show command '%s': %s", name, msg);
 
 	return ret;
 }

@@ -226,6 +226,50 @@ cly_srepo_table_load_err_entry(const struct cly_table * table,
 		                           style);
 }
 
+#if 0
+lyd_compare_schema_equal
+static int
+srepo_dat_load_xpath(sr_session_ctx_t * session,
+                     const char *       xpath,
+                     unsigned int       depth,
+                     sr_get_oper_flag_t flags,
+                     sr_data_t **       data)
+{
+	sr_error_t      serr;
+	LY_ERR          lerr;
+	struct ly_set * set;
+	unsigned int    n;
+
+	serr = srepo_dat_load_data(session,
+	                           xpath,
+	                           depth,
+	                           flags,
+	                           data);
+	if (serr != SR_ERR_OK)
+		return serr;
+
+	lerr = lyd_find_xpath((*data)->tree, xpath, &set);
+	if (lerr != LY_SUCCESS) {
+		serr = SR_ERR_LY;
+		goto release;
+	}
+
+	for (n = 0; n < set->count; n++) {
+		const struct lyd_node * node;
+
+		node = set->dnodes[n];
+		lyd_print_file(stdout, node, LYD_JSON, 0);
+	}
+
+	ly_set_free(set, NULL);
+
+release:
+	srepo_dat_release_data(*data);
+
+	return serr;
+}
+#endif
+
 static int
 cly_srepo_table_load_list(struct cly_table *         table,
                           const struct cly_context * context,
@@ -239,6 +283,14 @@ cly_srepo_table_load_list(struct cly_table *         table,
 	const char * const * style = cly_get_style(context);
 
 	cly_table_remove_lines(table);
+
+#if 0
+	srepo_dat_load_xpath(context->sess,
+	                     cly_table_get_userdata(table),
+	                     0,
+	                     (sr_get_oper_flag_t)data,
+	                     &list);
+#endif
 
 	if (srepo_dat_load_data(context->sess,
 	                        cly_table_get_userdata(table),
@@ -301,12 +353,14 @@ cly_srepo_table_push_array(struct cly_srepo_table_array * array,
 	cly_assert(node);
 
 	if (array->cnt == array->nr) {
-		array->nr *= 2;
-		if (array->nr >= CLY_TABLE_COLUMN_MAX)
+		unsigned int nr = 2 * array->nr;
+
+		if (nr >= CLY_TABLE_COLUMN_MAX)
 			return -ENOBUFS;
 
+		array->nr = nr;
 		array->items = cly_realloc(array->items,
-		                           array->nr * sizeof(array->items[0]));
+		                           nr * sizeof(array->items[0]));
 		cly_assert(array->items);
 	}
 
