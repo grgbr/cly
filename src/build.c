@@ -252,8 +252,8 @@ cly_build_handle_list(struct cly_build_stat *  state,
 	cly_assert(state);
 	cly_assert(state->dir);
 	cly_assert(list);
-	//cly_assert(srepo_sch_node_type((const struct lysc_node *)list) ==
-	//           LYS_LIST);
+	cly_assert((srepo_sch_node_type(list) == LYS_LIST) ||
+	           (srepo_sch_node_type(list) == LYS_CONTAINER));
 	cly_assert(event == SREPO_PRE_WALK_EVT);
 	cly_build_assert(builder);
 
@@ -363,69 +363,6 @@ cly_build_process_cont(struct cly_build_stat *  state,
  * List command line builder state handling.
  ******************************************************************************/
 
-#if 0
-#warning REMOVE ME and adapt cly_show_make_.*_list_cmd() so that it may cope with list sub containers...
-static int
-cly_build_handle_list_cont(struct cly_build_stat *            state,
-                           struct cly_context *               context,
-                           const struct lysc_node_container * container,
-                           enum cly_walk_event                event,
-                           struct cly_build *                 builder)
-{
-	cly_assert(state);
-	cly_assert(state->dir);
-	cly_assert_context(context);
-	cly_assert(container);
-	cly_assert(srepo_sch_node_type((const struct lysc_node *)container) ==
-	           LYS_CONTAINER);
-	cly_assert(event == CLY_PRE_WALK_EVT);
-	cly_build_assert(builder);
-
-	if (cly_build_node_uptodate((const struct lysc_node *)container)) {
-		struct cly_dir * dir = state->dir;
-		int              ret;
-
-		/*
-		 * Create the directory entry related to the list given
-		 * in argument.
-		 */
-		ret = cly_build_child_dir(&dir,
-		                          (const struct lysc_node *)container,
-		                          context);
-		if (ret)
-			return ret;
-
-		/*
-		 * Create and attach a show configuration command to the
-		 * directory just created.
-		 */
-		ret = cly_show_make_config_list_cmd(dir,
-		                                    container,
-		                                    "config",
-		                                    context);
-		if (ret)
-			return ret;
-
-		/*
-		 * Create and attach a show operational state command to
-		 * the directory just created.
-		 */
-		ret = cly_show_make_oper_list_cmd(dir,
-		                                  container,
-		                                  "status",
-		                                  context);
-		if (ret)
-			return ret;
-
-		cly_build_push(builder, cly_build_process_list, dir);
-
-		return CLY_CONT_WALK_RET;
-	}
-	else
-		return CLY_SKIP_WALK_RET;
-}
-#endif
-
 static int
 cly_build_process_list(struct cly_build_stat *  state,
                        const struct lysc_node * node,
@@ -439,22 +376,12 @@ cly_build_process_list(struct cly_build_stat *  state,
 
 	switch (srepo_sch_node_type(node)) {
 	case LYS_CONTAINER:
+	case LYS_LIST:
 		return cly_build_handle_list(state, node, event, builder);
-
-#warning REMOVE ME and adapt cly_show_make_.*_list_cmd() so that it may cope with list sub containers...
-#if 0
-		return cly_build_handle_list_cont(
-			state,
-			builder->context,
-			(const struct lysc_node_container *)node,
-			event,
-			builder);
-#endif
 
 	case LYS_LEAF:
 		break;
 
-	case LYS_LIST:
 	case LYS_LEAFLIST:
 	case LYS_CHOICE:
 	case LYS_ANYXML:
