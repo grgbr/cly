@@ -829,7 +829,7 @@ cly_dir_work_search(const struct cly_dir_work * work,
 			 */
 			cly_assert(work->orig && (work->orig[0] != '\0'));
 			cly_cmd_talk(work->cmd,
-			             "'%s': %s.",
+			             "'%s': %s",
 			             work->orig,
 			             cly_dir_strerror(-ret));
 
@@ -895,7 +895,7 @@ out:
 			return 0;
 
 		cly_cmd_talk(work->cmd,
-		             "'%s': invalid path argument: %s.",
+		             "'%s': invalid path argument: %s",
 		             path,
 		             cly_path_strerror(-ret));
 		return (int)ret;

@@ -15,6 +15,7 @@
 #define CLY_RESET_COLOR        "\033[0m"
 #define CLY_BOLD_COLOR         "\033[1m"
 #define CLY_HALFBRIGHT_COLOR   "\033[2m"
+#define CLY_ITALIC_COLOR       "\033[3m"
 #define CLY_UNDERLINE_COLOR    "\033[4m"
 #define CLY_BLINK_COLOR        "\033[5m"
 #define CLY_REVERSE_COLOR      "\033[7m"
@@ -43,6 +44,7 @@
 enum cly_style_kind {
 	CLY_LABEL_STYLE_KIND = 0,
 	CLY_VALUE_STYLE_KIND,
+	CLY_KEY_STYLE_KIND,
 	CLY_DEFAULT_STYLE_KIND,
 	CLY_ERROR_STYLE_KIND,
 	CLY_STYLE_KIND_NR

@@ -290,6 +290,7 @@ cly_fini_context(struct cly_context * context)
 static const char * const cly_the_style[] = {
 	[CLY_LABEL_STYLE_KIND]   = CLY_UNDERLINE_COLOR,
 	[CLY_VALUE_STYLE_KIND]   = NULL,
+	[CLY_KEY_STYLE_KIND]     = CLY_ITALIC_COLOR,
 	[CLY_DEFAULT_STYLE_KIND] = CLY_GRAY_COLOR,
 	[CLY_ERROR_STYLE_KIND]   = CLY_BOLD_RED_COLOR
 };

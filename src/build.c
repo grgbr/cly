@@ -15,7 +15,7 @@ cly_build_node_uptodate(const struct lysc_node * node)
 		return true;
 
 	/* Ignore obsolete and deprecated nodes. */
-	cly_scn_debug(node, "obsolete / deprecated node ignored.");
+	cly_scn_debug(node, "obsolete / deprecated node ignored");
 
 	return false;
 }
@@ -44,7 +44,7 @@ cly_build_child_dir(struct cly_dir **        directory,
 	}
 
 	cly_scn_err(node,
-	            "cannot create menu directory entry: %s.",
+	            "cannot create menu directory entry: %s",
 	            cly_dir_strerror(-ret));
 
 	return ret;
@@ -339,7 +339,7 @@ cly_build_process_cont(struct cly_build_stat *  state,
 	case LYS_ACTION:
 	case LYS_NOTIF:
 		cly_scn_debug(node,
-		              "'%s' node type not implemented !",
+		              "'%s' node type not implemented",
 		              cly_sch_node_type_str(node));
 		break;
 
@@ -352,7 +352,7 @@ cly_build_process_cont(struct cly_build_stat *  state,
 		 * a YANG compiled schema.
 		 */
 		cly_scn_debug(node,
-		              "invalid '%s' node type.",
+		              "invalid '%s' node type",
 		              cly_sch_node_type_str(node));
 	}
 
@@ -462,7 +462,7 @@ cly_build_process_list(struct cly_build_stat *  state,
 	case LYS_ACTION:
 	case LYS_NOTIF:
 		cly_scn_debug(node,
-		              "'%s' node type not implemented !",
+		              "'%s' node type not implemented",
 		              cly_sch_node_type_str(node));
 		break;
 
@@ -475,7 +475,7 @@ cly_build_process_list(struct cly_build_stat *  state,
 		 * a YANG compiled schema.
 		 */
 		cly_scn_debug(node,
-		              "invalid '%s' node type.",
+		              "invalid '%s' node type",
 		              cly_sch_node_type_str(node));
 	}
 
@@ -509,7 +509,7 @@ cly_build_top_dir(struct cly_dir **        directory,
 	if (ret) {
 		cly_scn_err(
 			node,
-			"cannot create top-level menu directory entry: %s.",
+			"cannot create top-level menu directory entry: %s",
 			cly_dir_strerror(-ret));
 		return ret;
 	}
@@ -693,7 +693,7 @@ cly_build_process_module(struct cly_build_stat *  state,
 		 * modules we parse use them as top-level statements.
 		 */
 		cly_scn_debug(node,
-		              "unexpected '%s' node type.",
+		              "unexpected '%s' node type",
 		              cly_sch_node_type_str(node));
 	}
 

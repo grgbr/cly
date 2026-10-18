@@ -36,7 +36,7 @@ cly_find_show_dir(struct cly_dir *    directory,
 			if (ret > 0)
 				printf("%s\n", show->path);
 			else
-				cly_talk("find: cannot show: %s.",
+				cly_talk("find: cannot show: %s",
 				         cly_dir_strerror(-ret));
 
 			break;
@@ -105,7 +105,7 @@ cly_find_parse_cmd(const struct cly_cmd * command,
 	cly_assert(ret == argc);
 	ret = cly_sched_work(context, &wk->super);
 	if (ret) {
-		cly_cmd_talk(command, "cannot schedule work.");
+		cly_cmd_talk(command, "cannot schedule work");
 		goto destroy;
 	}
 

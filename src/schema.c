@@ -37,7 +37,7 @@ cly_schema_show_dir(const struct cly_dir *         directory,
 		if (ret)
 			cly_cmd_talk(
 				show->work->super.cmd,
-				"schema: cannot show YANG tree diagram: %s.",
+				"schema: cannot show YANG tree diagram: %s",
 				cly_dir_strerror(-ret));
 		break;
 #endif /* defined(CONFIG_CLY_DEBUG) */
@@ -47,7 +47,7 @@ cly_schema_show_dir(const struct cly_dir *         directory,
 		if (ret)
 			cly_cmd_talk(
 				show->work->super.cmd,
-				"schema: cannot show YANG specification: %s.",
+				"schema: cannot show YANG specification: %s",
 				cly_dir_strerror(-ret));
 		break;
 
@@ -149,7 +149,7 @@ cly_schema_parse_cmd(const struct cly_cmd * command,
 	cly_assert(ret == argc);
 	ret = cly_sched_work(context, (struct cly_work *)wk);
 	if (ret) {
-		cly_cmd_talk(command, "cannot schedule work.");
+		cly_cmd_talk(command, "cannot schedule work");
 		goto destroy;
 	}
 

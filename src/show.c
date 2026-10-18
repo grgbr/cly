@@ -527,7 +527,7 @@ cly_show_is_list_entry(const struct lysc_node * node)
 	do {
 		if (srepo_sch_node_type(node) == LYS_LIST)
 			return true;
-		node = srepo_sch_parent(node);
+		node = srepo_sch_node_parent(node);
 	} while (node);
 
 	return false;
