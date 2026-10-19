@@ -98,7 +98,7 @@ cly_node_add_child(struct cly_node * node, struct cly_node * child)
 
 extern void
 cly_node_setup(struct cly_node * node)
-	__cly_nonull(1, 2);
+	__cly_nonull(1);
 
 extern void
 cly_node_destroy(struct cly_node * node);

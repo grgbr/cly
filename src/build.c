@@ -27,7 +27,7 @@ cly_build_node_uptodate(const struct lysc_node * node)
 static int
 cly_build_child_dir(struct cly_dir **        directory,
                     const struct lysc_node * node,
-                    struct cly_context *     context)
+                    struct cly_context *     context __unused)
 {
 	cly_assert(directory);
 	cly_assert(*directory);
@@ -83,6 +83,8 @@ struct cly_build {
 	cly_assert((_build)->cnt <= _build->nr); \
 	cly_assert((_build)->stats)
 
+#if defined(CONFIG_CLY_ASSERT)
+
 static unsigned int
 cly_build_count(const struct cly_build * builder)
 {
@@ -90,6 +92,8 @@ cly_build_count(const struct cly_build * builder)
 
 	return builder->cnt;
 }
+
+#endif /* defined(CONFIG_CLY_ASSERT) */
 
 static void
 cly_build_push(struct cly_build *     builder,
@@ -186,7 +190,7 @@ cly_build_process_list(struct cly_build_stat *  state,
 static int
 cly_build_handle_cont(struct cly_build_stat *            state,
                       const struct lysc_node_container * container,
-                      enum srepo_walk_event              event,
+                      enum srepo_walk_event              event __unused,
                       struct cly_build *                 builder)
 {
 	cly_assert(state);
@@ -246,7 +250,7 @@ cly_build_handle_cont(struct cly_build_stat *            state,
 static int
 cly_build_handle_list(struct cly_build_stat *  state,
                       const struct lysc_node * list,
-                      enum srepo_walk_event    event,
+                      enum srepo_walk_event    event __unused,
                       struct cly_build *       builder)
 {
 	cly_assert(state);
@@ -299,6 +303,8 @@ cly_build_handle_list(struct cly_build_stat *  state,
 		return SREPO_SKIP_WALK_RET;
 }
 
+#if defined(CONFIG_CLY_DEBUG)
+
 static const char *
 cly_sch_node_type_str(const struct lysc_node * node)
 {
@@ -306,6 +312,8 @@ cly_sch_node_type_str(const struct lysc_node * node)
 
 	return srepo_sch_node_type_str(srepo_sch_node_type(node));
 }
+
+#endif /* defined(CONFIG_CLY_DEBUG) */
 
 static int
 cly_build_process_cont(struct cly_build_stat *  state,
@@ -457,7 +465,7 @@ cly_build_top_dir(struct cly_dir **        directory,
 static int
 cly_build_handle_topcont(struct cly_build_stat *            state __unused,
                          const struct lysc_node_container * container,
-                         enum srepo_walk_event              event,
+                         enum srepo_walk_event              event __unused,
                          struct cly_build *                 builder)
 {
 	cly_assert(state);
@@ -516,7 +524,7 @@ cly_build_handle_topcont(struct cly_build_stat *            state __unused,
 static int
 cly_build_handle_toplist(struct cly_build_stat *       state __unused,
                          const struct lysc_node_list * list,
-                         enum srepo_walk_event         event,
+                         enum srepo_walk_event         event __unused,
                          struct cly_build *            builder)
 {
 	cly_assert(state);

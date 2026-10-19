@@ -25,10 +25,10 @@ static const struct cly_work_ops cly_quit_work_ops = {
 
 static int
 cly_quit_parse_cmd(const struct cly_cmd * command,
-                  const struct cly_dir * directory,
-                  struct cly_context *   context,
-                  int                    argc __unused,
-                  const char * const     argv[] __unused)
+                   const struct cly_dir * directory __unused,
+                   struct cly_context *   context,
+                   int                    argc __unused,
+                   const char * const     argv[] __unused)
 {
 	cly_cmd_assert(command);
 	cly_dir_assert(directory);

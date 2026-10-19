@@ -121,7 +121,7 @@ cly_table_col_set_userdata(struct libscols_column * column, void * data)
 	cly_assert(column);
 
 	struct libscols_cell * head;
-	int                    err;
+	int                    err __unused;
 
 	head = scols_column_get_header(column);
 	cly_assert(head);
@@ -157,7 +157,7 @@ cly_table_new_col(const struct cly_table * table,
 
 	size_t                   len;
 	struct libscols_column * col;
-	int                      err;
+	int                      err __unused;
 
 	len = strnlen(label, CLY_TABLE_LABEL_MAX);
 	if (!len) {
@@ -222,7 +222,7 @@ cly_table_set_userdata(struct cly_table * table, void * data)
 	cly_table_assert(table);
 
 	struct libscols_cell * ttl;
-	int                    err;
+	int                    err __unused;
 
 	ttl = scols_table_get_title(table->scols);
 	cly_assert(ttl);

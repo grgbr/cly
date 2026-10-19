@@ -26,7 +26,7 @@ cly_arg_ischr_valid(int chr)
 #endif
 
 size_t
-_cly_arg_isstr_valid(const char * string, size_t length)
+_cly_arg_isstr_valid(const char * string, size_t length __unused)
 {
 	cly_assert(string);
 	cly_assert(length);
@@ -144,7 +144,7 @@ cly_arg_parse_choice(const struct cly_arg * choice,
                      const struct cly_cmd * command,
                      const struct cly_dir * directory,
                      struct cly_context *   context,
-                     int                    argc,
+                     int                    argc __unused,
                      const char * const     argv[],
                      void *                 data)
 {
@@ -268,6 +268,14 @@ cly_arg_assert_terms(const struct cly_arg_kword_term * terminals,
 	}
 }
 
+#else  /* !defined(CONFIG_CLY_ASSERT) */
+
+static void
+cly_arg_assert_terms(const struct cly_arg_kword_term * terminals __unused,
+                     unsigned int                      nr __unused)
+{
+}
+
 #endif /* defined(CONFIG_CLY_ASSERT) */
 
 static int
@@ -302,7 +310,7 @@ cly_arg_parse_kword_parm(const struct cly_arg * argument,
                          const struct cly_cmd * command,
                          const struct cly_dir * directory,
                          struct cly_context *   context,
-                         int                    argc,
+                         int                    argc __unused,
                          const char * const     argv[],
                          void *                 data)
 {
@@ -397,7 +405,7 @@ cly_arg_complete_kword_term(const struct cly_arg_kword_term * terminal,
 	    ((length <= terminal->len) &&
 	     !memcmp(word, terminal->value, length))) {
 		char * kw;
-		int    ret;
+		int    ret __unused;
 
 		ret = cly_asprintf(&kw,
 		                   "%s=%s",
@@ -452,7 +460,7 @@ _cly_arg_complete_kword_parm(const struct cly_arg * argument,
 	if (length <= parm->super.len) {
 		if (!length || !memcmp(word, parm->super.name, length)) {
 			char * name;
-			int    ret;
+			int    ret __unused;
 
 			ret = cly_asprintf(&name, "%s=", parm->super.name);
 			cly_assert((size_t)ret == (parm->super.len + 1));

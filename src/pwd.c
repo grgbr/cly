@@ -41,7 +41,7 @@ static const struct cly_work_ops cly_pwd_work_ops = {
 
 static int
 cly_pwd_parse_cmd(const struct cly_cmd * command,
-                  const struct cly_dir * directory,
+                  const struct cly_dir * directory __unused,
                   struct cly_context *   context,
                   int                    argc __unused,
                   const char * const     argv[] __unused)

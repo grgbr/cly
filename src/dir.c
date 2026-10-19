@@ -182,6 +182,7 @@ cly_dir_xpath(const struct cly_dir * directory)
 		return cly_strdup("/");
 	default:
 		cly_assert(0);
+		return NULL;
 	}
 }
 
@@ -950,10 +951,10 @@ struct cly_dir_work_arg {
 
 static int
 cly_dir_work_parse_arg(const struct cly_arg * argument,
-                       const struct cly_cmd * command,
+                       const struct cly_cmd * command __unused,
                        const struct cly_dir * directory __unused,
                        struct cly_context *   context __unused,
-                       int                    argc,
+                       int                    argc __unused,
                        const char * const     argv[],
                        void *                 data)
 {
@@ -997,7 +998,7 @@ cly_dir_join_push_match(struct cly_match * matches,
                         const char *       base_name)
 {
 	char * path;
-	int    ret;
+	int    ret __unused;
 
 	ret = cly_asprintf(&path, "%s%s/", dir_name, base_name);
 	cly_assert(ret >= 2);
@@ -1126,7 +1127,7 @@ cly_dir_searchn_normalize(const struct cly_dir **     directory,
 		len = cly_path_mkabs(&pth, norm, CLY_PATH_MAX - 1);
 
 	cly_assert(len >= 0);
-	cly_assert((len + 1) < CLY_PATH_MAX);
+	cly_assert((size_t)(len + 1) < CLY_PATH_MAX);
 	if (len) {
 		if (norm[len - 1] != '/') {
 			norm[len++] = '/';

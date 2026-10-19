@@ -16,6 +16,7 @@ cly_path_strerror(int error)
 		return "not enought buffer space";
 	default:
 		cly_assert(0);
+		return "unknown error";
 	}
 }
 

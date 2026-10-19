@@ -150,7 +150,7 @@ _cly_shell_set_prompt(struct cly_shell * shell, const char * prompt)
 	cly_assert(prompt);
 	cly_assert(*prompt);
 
-	int ret;
+	int ret __unused;
 
 	ret = cly_asprintf(&shell->prompt, "%s%s> ", shell->pref, prompt);
 	cly_assert(ret >= 4);
@@ -409,7 +409,7 @@ cly_shell_init(bool                         history,
 	const char * user;
 	size_t       len;
 	char *       host;
-	int          ret;
+	int          ret __unused;
 
 	user = secure_getenv("USER");
 	if (!user)

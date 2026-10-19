@@ -86,7 +86,7 @@ cly_chdir(struct cly_context * context, const struct cly_dir * directory)
 
 	if (cly_shell_ison(context)) {
 		char *  path;
-		ssize_t len;
+		ssize_t len __unused;
 
 		path = cly_malloc(CLY_PATH_MAX);
 		cly_assert(path);

@@ -131,7 +131,7 @@ cly_table_line_set_userdata(struct libscols_line * line, void * data)
 {
 	cly_assert(line);
 
-	int err;
+	int err __unused;
 
 	err = scols_line_set_userdata(line, data);
 	cly_assert(!err);
