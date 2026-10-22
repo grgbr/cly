@@ -79,8 +79,7 @@ cly_shell_read_line(const struct cly_shell * shell, char ** line)
 		goto free;
 	}
 
-	if (shell->hpath)
-		add_history(ln);
+	add_history(ln);
 
 	*line = ln;
 
