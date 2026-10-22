@@ -42,6 +42,9 @@ cly_shell_enroll_display_compl(cly_shell_display_compl_fn * display,
                                void *                       data);
 
 extern void
+cly_shell_redisplay(void);
+
+extern void
 cly_shell_shutdown(void);
 
 extern int

@@ -7,17 +7,21 @@
 #include "xpath.h"
 #include "schema.h"
 #include "quit.h"
-#include <sys/ioctl.h>
+#include <utils/signal.h>
 
 /******************************************************************************
  * Utilities
  ******************************************************************************/
 
+/*
+ * Note that by default, readline(3) installs its own SIGWINCH signal handler.
+ * No need to handle this ourself unless we configure readline(3) otherwise.
+ * See section 2.5 "Readline Signal Handling" of readline user manual for more
+ * informations.
+ */
 unsigned int
 cly_term_cols(const struct cly_context * context)
 {
-#warning TODO: plug in a SIGWINCH signal handler
-
 	cly_assert_context(context);
 
 	if (context->isatty) {
@@ -295,6 +299,41 @@ static const char * const cly_the_style[] = {
 	[CLY_ERROR_STYLE_KIND]   = CLY_BOLD_RED_COLOR
 };
 
+static sig_atomic_t cly_terminated;
+
+static void
+cly_handle_intr(int signo __unused)
+{
+	cly_shell_redisplay();
+}
+
+static void
+cly_handle_term(int signo __unused)
+{
+	cly_shell_shutdown();
+	cly_terminated = 1;
+}
+
+static void
+cly_setup_sigs(void)
+{
+	struct sigaction act = { 0, };
+
+	usig_emptyset(&act.sa_mask);
+	usig_addset(&act.sa_mask, SIGINT);
+	usig_addset(&act.sa_mask, SIGHUP);
+	usig_addset(&act.sa_mask, SIGQUIT);
+	usig_addset(&act.sa_mask, SIGTERM);
+
+	act.sa_handler = cly_handle_intr;
+	usig_action(SIGINT, &act, NULL);
+
+	act.sa_handler = cly_handle_term;
+	usig_action(SIGHUP, &act, NULL);
+	usig_action(SIGQUIT, &act, NULL);
+	usig_action(SIGTERM, &act, NULL);
+}
+
 static int
 cly_init(struct cly_context * context)
 {
@@ -341,6 +380,8 @@ main(int argc, const char * const argv[])
 	struct cly_context ctx;
 	int                ret;
 
+	cly_setup_sigs();
+
 	ret = cly_init(&ctx);
 	if (ret)
 		goto out;
@@ -351,12 +392,12 @@ main(int argc, const char * const argv[])
 			goto fini;
 
 		ret = cly_shell_init(true, " \t;\n", cly_complete, &ctx);
-		if (ret)
+		if (ret || cly_terminated)
 			goto fini_shell;
 
 		ctx.interact = true;
 
-		do {
+		while (ret != -ESHUTDOWN) {
 			struct cly_expr_blk eblk = CLY_EXPR_BLK_INIT(eblk);
 
 			ret = cly_shell_read_expr(&eblk);
@@ -388,7 +429,7 @@ main(int argc, const char * const argv[])
 
 			/* Release expression block resources. */
 			cly_expr_blk_fini(&eblk);
-		} while (ret != -ESHUTDOWN);
+		}
 		if (ret == -ESHUTDOWN)
 			ret = 0;
 
@@ -396,8 +437,11 @@ fini_shell:
 		cly_shell_fini();
 	}
 	else {
+		if (cly_terminated)
+			goto fini;
+
 		ret = cly_parse(&ctx, argc - 1, &argv[1]);
-		if (ret)
+		if (ret || cly_terminated)
 			goto fini;
 
 		ret = cly_exec_workq(&ctx);

@@ -3,7 +3,7 @@
 
 #if defined(CONFIG_CLY_LOG)
 
-static struct elog_stdio cly_logger;
+struct elog_stdio cly_logger;
 
 static void
 cly_srlog_cb(sr_log_level_t level, const char * message)

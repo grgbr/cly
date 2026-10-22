@@ -63,6 +63,17 @@ cly_init_log(enum elog_severity severity);
 
 #if defined(CONFIG_CLY_LOG)
 
+extern struct elog_stdio cly_logger;
+
+#define cly_err(_format, ...) \
+	elog_err(&cly_logger, _format ".", ## __VA_ARGS__)
+#define cly_warn(_format, ...) \
+	elog_warn(&cly_logger, _format ".", ## __VA_ARGS__)
+#define cly_notice(_format, ...) \
+	elog_notice(&cly_logger, _format ".", ## __VA_ARGS__)
+#define cly_info(_format, ...) \
+	elog_info(&cly_logger, _format ".", ## __VA_ARGS__)
+
 #define cly_scn_log(_node, _svrt, _fmt, ...) \
 	srepo_sch_log_node(_node, _svrt, "", _fmt, ## __VA_ARGS__)
 #define cly_scn_err(_node, _fmt, ...) \
@@ -89,6 +100,11 @@ extern void
 cly_fini_log(void);
 
 #else  /* !defined(CONFIG_CLY_LOG) */
+
+#define cly_err(_format, ...)
+#define cly_warn(_format, ...)
+#define cly_notice(_format, ...)
+#define cly_info(_format, ...)
 
 #define cly_scn_log(_node, _svrt, _fmt, ...)
 #define cly_scn_err(_node, _fmt, ...)

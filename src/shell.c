@@ -2,9 +2,7 @@
 #include "expr.h"
 #include "arg.h"
 #include <readline/history.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <utils/path.h>
 
 struct cly_shell {
 	char *                       prompt;
@@ -14,6 +12,7 @@ struct cly_shell {
 	struct cly_match             matches;
 	cly_shell_display_compl_fn * display_compl;
 	void *                       display_data;
+	volatile sig_atomic_t        redisplay;
 	volatile sig_atomic_t        shutdown;
 	char *                       hpath;
 };
@@ -25,23 +24,58 @@ struct cly_shell {
 
 static struct cly_shell cly_the_shell;
 
-void
-cly_shell_enroll_display_compl(cly_shell_display_compl_fn * display,
-                               void *                       data)
+static int
+cly_shell_handle_readline_events(void)
 {
-	cly_shell_assert(&cly_the_shell);
-	cly_assert(display);
+	if (cly_the_shell.redisplay) {
+		/* Move cursor to next line. */
+		rl_crlf();
+		/* Tell readline we have moved onto a new empty line. */
+		rl_on_new_line();
+		/* Wipe buffered line content out. */
+		rl_replace_line("", 0);
 
-	cly_the_shell.display_compl = display;
-	cly_the_shell.display_data = data;
-}
+		if (RL_ISSTATE(RL_STATE_ISEARCH | RL_STATE_NUMERICARG)) {
+			/*
+			 * We are in the middle of an incremental searching or
+			 * numeric argument probing operation.
+			 * Restore our own prompt since both operations
+			 * temporarily modify current prompt and that we have
+			 * just interrupted them.
+			 */
+			rl_restore_prompt();
 
-void
-cly_shell_shutdown(void)
-{
-	cly_shell_assert(&cly_the_shell);
+			/*
+			 * Cause a blocking readline() to return immediately
+			 * instead of waiting for the next end-of-line input
+			 * character.
+			 * This gives readline() caller a chance to purge
+			 * buffered input as soon as possible to prevent from
+			 * mixing it with post interruption input characters.
+			 * The reason why we cannot free these buffered
+			 * characters here is that readline provides no public
+			 * API (I know of) to purge characters buffered by its
+			 * incremental searching logic. As a consequence we need
+			 * to wait for readline() to return before being able to
+			 * release them.
+			 * This is the reason we leave cly_the_shell.redisplay
+			 * untouched here...
+			 */
+			rl_done = 1;
+		}
+		else {
+			/* Tell readline it should update screen. */
+			rl_redisplay();
 
-	cly_the_shell.shutdown = 1;
+			/* Mark redisplay event as completed. */
+			cly_the_shell.redisplay = 0;
+		}
+	}
+	else if (cly_the_shell.shutdown)
+		/* Request readline() to return immediately. */
+		rl_done = 1;
+
+	return 0;
 }
 
 static int
@@ -53,10 +87,12 @@ cly_shell_read_line(const struct cly_shell * shell, char ** line)
 	size_t len;
 	int    ret;
 
+	/* Reset redisplay event handling logic. */
+	cly_the_shell.redisplay = 0;
+
 	ln = readline(shell->prompt);
 	if (!ln) {
 		/* End of stream required using ^D. */
-		rl_crlf();
 		return -ESHUTDOWN;
 	}
 
@@ -66,8 +102,18 @@ cly_shell_read_line(const struct cly_shell * shell, char ** line)
 		goto free;
 	}
 
-	if (ln[strspn(ln, " \t")] == '\0') {
-		/* Empty input line... */
+	if (cly_the_shell.redisplay || (ln[strspn(ln, " \t")] == '\0')) {
+		/*
+		 * Input line is empty...
+		 *
+		 * When cly_the_shell.redisplay is true, a redisplay event
+		 * happened during the course of readline() and it has not been
+		 * processed entirely, i.e. we were interrupted in the middle of
+		 * an incremental searching and / or numeric argument probing
+		 * operation.
+		 * Complete the event by freeing readline's buffered input.
+		 * See cly_shell_handle_readline_events();
+		 */
 		ret = -ENODATA;
 		goto free;
 	}
@@ -116,6 +162,29 @@ free:
 	cly_free(ln);
 }
 #endif
+
+void
+cly_shell_redisplay(void)
+{
+	cly_the_shell.redisplay = 1;
+}
+
+void
+cly_shell_shutdown(void)
+{
+	cly_the_shell.shutdown = 1;
+}
+
+void
+cly_shell_enroll_display_compl(cly_shell_display_compl_fn * display,
+                               void *                       data)
+{
+	cly_shell_assert(&cly_the_shell);
+	cly_assert(display);
+
+	cly_the_shell.display_compl = display;
+	cly_the_shell.display_data = data;
+}
 
 int
 cly_shell_read_expr(struct cly_expr_blk * expr_block)
@@ -174,7 +243,7 @@ cly_shell_init_hist(void)
 	size_t       len;
 	char *       cdir; /* Configuration directory path. */
 	char *       hpath;
-	int          ret = EINVAL;
+	int          ret = -EINVAL;
 
 	bdir = secure_getenv("XDG_CONFIG_HOME");
 	if (!bdir) {
@@ -195,19 +264,20 @@ cly_shell_init_hist(void)
 		cly_assert(ret >= 3);
 	}
 
-	if (mkdir(cdir, S_IRUSR | S_IWUSR)) {
-		cly_assert(ret != EFAULT);
-		if (errno != EEXIST) {
-			ret = errno;
-			goto free;
-		}
-	}
+	ret = upath_mkdir(cdir, S_IRUSR | S_IWUSR | S_IXUSR);
+	if (ret && (ret != -EEXIST))
+		goto free;
 
 	ret = cly_asprintf(&hpath, "%s/history", cdir);
-	cly_assert(ret > 0);
+	cly_assert(ret > 8);
 	cly_assert(hpath);
 
-	read_history(hpath);
+	ret = -read_history(hpath);
+	if (ret) {
+		cly_free(hpath);
+		goto free;
+	}
+
 	cly_free(cdir);
 
 	return hpath;
@@ -215,7 +285,7 @@ cly_shell_init_hist(void)
 free:
 	cly_free(cdir);
 out:
-	cly_talk("cannot setup history: %s", strerror(ret));
+	cly_warn("cannot setup history: %s", strerror(-ret));
 
 	return NULL;
 }
@@ -225,7 +295,11 @@ cly_shell_fini_hist(struct cly_shell * shell)
 {
 	cly_assert(shell->hpath);
 
-	write_history(shell->hpath);
+	int err;
+
+	err = write_history(shell->hpath);
+	if (err)
+		cly_warn("cannot save history: %s", strerror(err));
 
 	cly_free(shell->hpath);
 }
@@ -429,6 +503,7 @@ cly_shell_init(bool                         history,
 
 	_cly_shell_set_prompt(&cly_the_shell, "/");
 	cly_the_shell.hpath = NULL;
+	cly_the_shell.redisplay = 0;
 	cly_the_shell.shutdown = 0;
 
 	/* Setup the list of characters that signal a break between words. */
@@ -442,6 +517,8 @@ cly_shell_init(bool                         history,
 		cly_the_shell.hpath = cly_shell_init_hist();
 
 	rl_readline_name = program_invocation_short_name;
+
+	rl_event_hook = cly_shell_handle_readline_events;
 
 	return 0;
 
