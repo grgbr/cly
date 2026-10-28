@@ -375,7 +375,7 @@ cly_shell_complete(const char * word, int begin, int end)
 		cly_assert(first <= begin);
 
 		/* ...in addition, also get rid of trailing spaces. */
-		while (last &&
+		while ((last > first) &&
 		       (rl_line_buffer[last - 1] == ' ' ||
 		        rl_line_buffer[last - 1] == '\t'))
 			last--;
