@@ -273,10 +273,8 @@ cly_shell_init_hist(void)
 	cly_assert(hpath);
 
 	ret = -read_history(hpath);
-	if (ret) {
-		cly_free(hpath);
-		goto free;
-	}
+	if (ret && (ret != -ENOENT))
+		cly_warn("cannot load history: %s", strerror(-ret));
 
 	cly_free(cdir);
 
