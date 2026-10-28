@@ -71,7 +71,7 @@ cly_srepo_table_load(struct cly_table *         table,
 	unsigned int           l;
 	struct libscols_line * ln;
 
-	if (srepo_dat_load_data(context->sess,
+	if (srepo_dat_load_data(cly_oper_session(context),
 	                        cly_table_get_userdata(table),
 	                        2,
 	                        (sr_get_oper_flag_t)data,
@@ -295,7 +295,7 @@ cly_srepo_table_load_list(struct cly_table *         table,
 
 	cly_table_remove_lines(table);
 
-	if (srepo_dat_loadn_iter(context->sess,
+	if (srepo_dat_loadn_iter(cly_oper_session(context),
 	                         cly_table_get_userdata(table),
 	                         2,
 	                         (sr_get_oper_flag_t)data,

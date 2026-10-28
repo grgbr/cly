@@ -69,7 +69,7 @@ cly_style_get_color(const char * const * style, enum cly_style_kind kind)
  ******************************************************************************/
 
 /*
- * The number of differed work MUST be large enough to support, at least , a
+ * The number of differed work MUST be large enough to support, at least, a
  * full block of expressions !
  */
 #define CLY_WORK_NR (128U)
@@ -80,7 +80,8 @@ cly_style_get_color(const char * const * style, enum cly_style_kind kind)
 
 struct cly_context {
 	sr_conn_ctx_t *        conn;
-	sr_session_ctx_t *     sess;
+	sr_session_ctx_t *     oper_sess;
+	sr_session_ctx_t *     cand_sess;
 	const struct ly_ctx *  lyctx;
 	unsigned int           wkcnt;
 	struct cly_work *      wkq[CLY_WORK_NR];
@@ -96,7 +97,7 @@ struct cly_context {
 #define cly_assert_context(_ctx) \
 	cly_assert(_ctx); \
 	cly_assert((_ctx)->conn); \
-	cly_assert((_ctx)->sess); \
+	cly_assert((_ctx)->oper_sess); \
 	cly_assert((_ctx)->lyctx); \
 	cly_dir_assert(&(_ctx)->root); \
 	cly_dir_assert((_ctx)->cwd); \
@@ -144,6 +145,22 @@ cly_cwd(const struct cly_context * context)
 	cly_assert_context(context);
 
 	return context->cwd;
+}
+
+static inline sr_session_ctx_t *
+cly_oper_session(const struct cly_context * context)
+{
+	cly_assert_context(context);
+
+	return context->oper_sess;
+}
+
+static inline sr_session_ctx_t **
+cly_cand_session(struct cly_context * context)
+{
+	cly_assert_context(context);
+
+	return &context->cand_sess;
 }
 
 extern void

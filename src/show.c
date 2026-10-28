@@ -97,7 +97,7 @@ cly_show_format(const struct cly_cmd *     command,
 	sr_data_t * data;
 	sr_error_t  ret;
 
-	ret = srepo_sch_load_data(context->sess,
+	ret = srepo_sch_load_data(cly_oper_session(context),
 	                          schema,
 	                          2,
 	                          flags,

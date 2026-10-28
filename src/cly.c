@@ -6,6 +6,9 @@
 #include "find.h"
 #include "xpath.h"
 #include "schema.h"
+#include "edit.h"
+#include "commit.h"
+#include "discard.h"
 #include "quit.h"
 #include <utils/signal.h>
 
@@ -73,7 +76,7 @@ cly_exec_workq(struct cly_context * context)
 }
 
 /******************************************************************************
- * Overall cli context handling
+ * Overall cly context handling
  ******************************************************************************/
 
 static bool
@@ -214,24 +217,26 @@ cly_init_context(struct cly_context * context, const char * const * style)
 	}
 #endif /* defined(CONFIG_CLY_DEBUG) */
 
-	err = sr_connect(SR_CONN_DEFAULT, &context->conn);
+	err = srepo_connect(&context->conn);
 	if (err != SR_ERR_OK) {
 		cly_talk("cannot open repo connection: %s",
 		         sr_strerror(err));
 		return err;
 	}
 
-	err = sr_session_start(context->conn,
-	                       SR_DS_OPERATIONAL,
-	                       &context->sess);
+	err = srepo_session_start(context->conn,
+	                          SR_DS_OPERATIONAL,
+	                          &context->oper_sess);
 	if (err != SR_ERR_OK) {
 		cly_talk("cannot start repo session: %s",
 		         sr_strerror(err));
 		goto disconnect;
 	}
 
-	context->lyctx = sr_session_acquire_context(context->sess);
-	assert(context->lyctx);
+	context->cand_sess = NULL;
+
+	err = srepo_acquire_context(context->oper_sess, &context->lyctx);
+	cly_assert(!err);
 
 	err = ly_out_new_file(stdout, &context->lyout);
 	if (err != LY_SUCCESS) {
@@ -252,10 +257,10 @@ cly_init_context(struct cly_context * context, const char * const * style)
 	return SR_ERR_OK;
 
 release:
-	sr_session_release_context(context->sess);
-	sr_session_stop(context->sess);
+	srepo_release_context(context->oper_sess);
+	srepo_session_stop(context->oper_sess);
 disconnect:
-	sr_disconnect(context->conn);
+	srepo_disconnect(context->conn);
 
 	return err;
 }
@@ -277,12 +282,16 @@ cly_fini_context(struct cly_context * context)
 	cly_assert_context(context);
 
 	cly_release_workq(context);
+	if (context->cand_sess) {
+		srepo_discard_changes(context->cand_sess);
+		srepo_session_stop(context->cand_sess);
+	}
 	cly_dir_walk_safe(&context->root, cly_visitn_destroy_dir, NULL);
 	cly_dir_fini_root(&context->root);
 	ly_out_free(context->lyout, NULL, 0);
-	sr_session_release_context(context->sess);
-	sr_session_stop(context->sess);
-	sr_disconnect(context->conn);
+	srepo_release_context(context->oper_sess);
+	srepo_session_stop(context->oper_sess);
+	srepo_disconnect(context->conn);
 
 	cly_fini_log();
 }
@@ -294,7 +303,7 @@ cly_fini_context(struct cly_context * context)
 static const char * const cly_the_style[] = {
 	[CLY_LABEL_STYLE_KIND]   = CLY_UNDERLINE_COLOR,
 	[CLY_VALUE_STYLE_KIND]   = NULL,
-	[CLY_KEY_STYLE_KIND]     = CLY_ITALIC_COLOR,
+	[CLY_KEY_STYLE_KIND]     = CLY_BOLD_COLOR,
 	[CLY_DEFAULT_STYLE_KIND] = CLY_GRAY_COLOR,
 	[CLY_ERROR_STYLE_KIND]   = CLY_BOLD_RED_COLOR
 };
@@ -351,6 +360,9 @@ cly_init(struct cly_context * context)
 	cly_find_build_cmd(&context->root);
 	cly_xpath_build_cmd(&context->root);
 	cly_schema_build_cmd(&context->root);
+	cly_edit_build_cmd(&context->root);
+	cly_commit_build_cmd(&context->root);
+	cly_disc_build_cmd(&context->root);
 	cly_quit_build_cmd(&context->root);
 
 	ret = cly_build_from_schema(context);

@@ -50,6 +50,9 @@ cly-objs       := common.o \
                   find.o \
                   xpath.o \
                   schema.o \
+                  edit.o \
+                  commit.o \
+                  discard.o \
                   quit.o \
                   \
                   build.o \
