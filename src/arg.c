@@ -135,6 +135,29 @@ cly_arg_create_parm(struct cly_arg_parm **     parameter,
 	return ret;
 }
 
+int
+cly_arg_createn_add_parm(struct cly_arg_parm **     parameter,
+                         const char *               name,
+                         const struct cly_arg_ops * opers,
+                         struct cly_node *          cmd_or_arg)
+{
+	cly_assert(parameter);
+	cly_assert(name);
+	cly_arg_assert_ops(opers);
+	cly_node_assert(cmd_or_arg);
+
+	int ret;
+
+	ret = cly_arg_create_parm(parameter, name, opers);
+	if (!ret) {
+		cly_node_add_child(cmd_or_arg,
+		                   *(struct cly_node **)parameter);
+		return 0;
+	}
+
+	return ret;
+}
+
 /******************************************************************************
  * Choice argument handling
  ******************************************************************************/

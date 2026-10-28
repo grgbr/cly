@@ -37,9 +37,7 @@ struct cly_show_cmd {
 	cly_assert(_cmd); \
 	cly_cmd_assert(&(_cmd)->super); \
 	cly_srepo_table_assert((_cmd)->table); \
-	srepo_dat_assert_get_flags((_cmd)->flags); \
-	cly_assert(((_cmd)->flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) != \
-	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG))
+	srepo_dat_assert_get_flags((_cmd)->flags)
 
 #warning TODO: implement arbitrary output stream for pager support.
 static int
@@ -51,8 +49,6 @@ cly_show_table(const struct cly_cmd *     command,
 	cly_show_assert_cmd((const struct cly_show_cmd *)command);
 	cly_srepo_table_assert(table);
 	srepo_dat_assert_get_flags(flags);
-	cly_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
-	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG));
 	cly_assert_context(context);
 
 	int ret;
@@ -89,8 +85,6 @@ cly_show_format(const struct cly_cmd *     command,
 	cly_show_assert_cmd((const struct cly_show_cmd *)command);
 	cly_assert(schema);
 	srepo_dat_assert_get_flags(flags);
-	cly_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
-	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG));
 	cly_assert((format == LYD_JSON) || (format == LYD_XML));
 	cly_assert_context(context);
 
@@ -299,8 +293,6 @@ cly_show_create_cmd(struct cly_show_cmd **     command,
 	cly_assert(cly_cmd_name_isok(name));
 	cly_assert(init);
 	srepo_dat_assert_get_flags(flags);
-	cly_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
-	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG));
 	cly_assert_context(context);
 
 	struct cly_show_cmd *       cmd = cmd;
@@ -375,35 +367,33 @@ cly_show_make_cmd(struct cly_dir *           directory,
 	cly_assert(name);
 	cly_assert(init);
 	srepo_dat_assert_get_flags(flags);
-	cly_assert((flags & (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG)) !=
-	           (SR_OPER_NO_STATE | SR_OPER_NO_CONFIG));
 	cly_assert_context(context);
 
 	struct cly_cmd * cmd;
 	const char *     msg;
-	int              ret;
+	int              err;
 
 	if (!cly_cmd_name_isok(name)) {
 		msg = "invalid name";
-		ret = -EINVAL;
+		err = -EINVAL;
 		goto err;
 	}
 
 	if (cly_dir_find_cmd(directory, name)) {
 		msg = "already exists";
-		ret = -EEXIST;
+		err = -EEXIST;
 		goto err;
 	}
 
-	ret = cly_show_create_cmd((struct cly_show_cmd **)&cmd,
+	err = cly_show_create_cmd((struct cly_show_cmd **)&cmd,
 	                          directory,
 	                          node,
 	                          name,
 	                          init,
 	                          flags,
 	                          context);
-	if (ret) {
-		cly_assert(ret == -ENOENT);
+	if (err) {
+		cly_assert(err == -ENOENT);
 
 		cly_scn_debug(node,
 		              "'%s' show command creation ignored: "
@@ -416,14 +406,14 @@ cly_show_make_cmd(struct cly_dir *           directory,
 err:
 	cly_scn_err(node, "cannot create show command '%s': %s", name, msg);
 
-	return ret;
+	return err;
 }
 
 static bool
 cly_show_filter_config_node(const struct lysc_node * node)
 {
 	cly_assert(node);
-	cly_assert(node->nodetype == LYS_LEAF);
+	cly_assert(srepo_sch_node_type(node) == LYS_LEAF);
 
 	return (srepo_sch_conf_flags(node) == LYS_CONFIG_W) &&
 	       !(srepo_sch_status_flags(node) &
@@ -434,7 +424,7 @@ static bool
 cly_show_filter_oper_node(const struct lysc_node * node)
 {
 	cly_assert(node);
-	cly_assert(node->nodetype == LYS_LEAF);
+	cly_assert(srepo_sch_node_type(node) == LYS_LEAF);
 
 	return (srepo_sch_conf_flags(node) == LYS_CONFIG_R) &&
 	       !(srepo_sch_status_flags(node) &
@@ -448,7 +438,7 @@ cly_show_init_config_cmd(struct cly_srepo_table *   table,
 {
 	cly_assert(table);
 	cly_assert(node);
-	cly_assert(node->nodetype == LYS_CONTAINER);
+	cly_assert(srepo_sch_node_type(node) == LYS_CONTAINER);
 	cly_assert_context(context);
 
 	return cly_srepo_table_init(table,
@@ -483,7 +473,7 @@ cly_show_init_oper_cmd(struct cly_srepo_table *   table,
 {
 	cly_assert(table);
 	cly_assert(node);
-	cly_assert(node->nodetype == LYS_CONTAINER);
+	cly_assert(srepo_sch_node_type(node) == LYS_CONTAINER);
 	cly_assert_context(context);
 
 	return cly_srepo_table_init(table,
@@ -573,7 +563,7 @@ static bool
 cly_show_filter_oper_list_node(const struct lysc_node * node)
 {
 	cly_assert(node);
-	cly_assert(node->nodetype == LYS_LEAF);
+	cly_assert(srepo_sch_node_type(node) == LYS_LEAF);
 
 	if (srepo_sch_status_flags(node) &
 	    (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC))
