@@ -1,5 +1,4 @@
 #include "common.h"
-#include <srutils/srepo/schema.h>
 
 #if defined(CONFIG_CLY_LOG)
 

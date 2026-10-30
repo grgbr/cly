@@ -16,39 +16,24 @@ static int
 cly_disc_exec_work(struct cly_work * work, struct cly_context * context)
 {
 	const struct cly_disc_work * wk = (struct cly_disc_work *)work;
-	sr_session_ctx_t **          sess = cly_cand_session(context);
+	sr_session_ctx_t *           sess = *cly_cand_session(context);
 	sr_error_t                   err;
-	int                          ret = -EPERM;
 
-	if (!*sess) {
+	if (!sess) {
 		cly_cmd_talk(wk->cmd, "no ongoing edition");
 		return 0;
 	}
 
-	if (srepo_has_changes(*sess)) {
-		err = srepo_discard_changes(*sess);
-		if (err != SR_ERR_OK)
-			goto stop;
+	cly_assert(!srepo_has_changes(sess));
+	err = srepo_copy_config(sess, NULL, SR_DS_RUNNING);
+	if (err != SR_ERR_OK) {
+		cly_cmd_talk(wk->cmd,
+		             "cannot discard editions: %s",
+		             sr_strerror(err));
+		return -EPERM;
 	}
-	else
-		cly_cmd_talk(wk->cmd, "no editions to discard");
 
-	err = srepo_session_stop(*sess);
-	if (err != SR_ERR_OK)
-		goto err;
-
-	ret = 0;
-	goto out;
-
-stop:
-	srepo_session_stop(*sess);
-err:
-	cly_cmd_talk(wk->cmd, "cannot discard editions: %s", sr_strerror(err));
-out:
-	cly_info("exited edition mode");
-	*sess = NULL;
-
-	return ret;
+	return 0;
 }
 
 static const struct cly_work_ops cly_disc_work_ops = {

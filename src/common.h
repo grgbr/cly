@@ -3,7 +3,7 @@
 
 #include "config.h"
 #include <elog/elog.h>
-#include <srutils/srepo/xpath.h>
+#include <srutils/srepo/schema.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -220,5 +220,18 @@ cly_render_chr(int chr)
 extern const char *
 cly_render_string(const char * input, char output[CLY_RENDER_MAX])
 	__cly_nonull(1, 2) __returns_nonull;
+
+typedef bool cly_filter_node_fn(const struct lysc_node * node);
+
+static inline bool
+cly_filter_config_leaf(const struct lysc_node * node)
+{
+	cly_assert(node);
+	cly_assert(srepo_sch_node_type(node) == LYS_LEAF);
+
+	return (srepo_sch_conf_flags(node) == LYS_CONFIG_W) &&
+	       !(srepo_sch_status_flags(node) &
+	         (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC));
+}
 
 #endif /* _CLY_COMMON_H */

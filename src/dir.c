@@ -1,7 +1,6 @@
 #include "dir.h"
 #include "cly.h"
 #include "match.h"
-#include <srutils/srepo/schema.h>
 #include <errno.h>
 
 static int

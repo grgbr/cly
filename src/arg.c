@@ -77,15 +77,70 @@ cly_arg_create(size_t size, const struct cly_arg_ops * opers)
  * Parameter argument handling
  ******************************************************************************/
 
-#define cly_arg_assert_parm(_parm) \
-	cly_assert(_parm); \
-	cly_arg_assert(&(_parm)->super); \
-	cly_assert((_parm)->name); \
-	cly_assert((_parm)->len); \
-	cly_assert((_parm)->len < CLY_ARG_MAX); \
-	cly_assert(strnlen((_parm)->name, CLY_ARG_MAX) == (_parm)->len)
+/*
+ * Scan command line arguments to detect wether the parameter given as first
+ * argument has already been completed or not.
+ */
+bool
+cly_arg_parm_already_completed(const struct cly_arg_parm * parm,
+                               int                         argc,
+                               const char * const          argv[])
+{
+	cly_arg_assert_parm(parm);
 
-static int
+	int a;
+
+	for (a = 0; a < argc; a++) {
+		const char * arg = argv[a];
+
+		if (!strncmp(arg, parm->name, parm->len) &&
+		    arg[parm->len] == '=')
+			return true;
+	}
+
+	return false;
+}
+
+bool
+cly_arg_complete_parm_name(const struct cly_arg_parm * parameter,
+                           const char *                word,
+                           size_t                      length,
+                           struct cly_match *          matches)
+{
+	cly_arg_assert_parm(parameter);
+	cly_match_assert(matches);
+
+	if (length <= parameter->len) {
+		if (!length || !memcmp(word, parameter->name, length)) {
+			char * name;
+			int    ret __unused;
+
+			ret = cly_asprintf(&name, "%s=", parameter->name);
+			cly_assert((size_t)ret == (parameter->len + 1));
+
+			/*
+			 * Give ownership of `name' to `matches'. Allocated
+			 * string ownership will be transfered from `matches' to
+			 * readline(3) by cly_shell_complete().
+			 * Readline(3) will free(3) it at completion process
+			 * termination time.
+			 */
+			cly_match_push(matches, name);
+
+			/*
+			 * Disable appending the completion character after a
+			 * selected match.
+			 */
+			cly_shell_suppress_complete_char();
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+int
 cly_arg_setup_parm(struct cly_arg_parm *      parameter,
                    const char *               name,
                    const struct cly_arg_ops * opers)
@@ -360,7 +415,7 @@ cly_arg_parse_kword_parm(const struct cly_arg * argument,
 	str = &str[len + 1];
 	if (*str == '\0') {
 		cly_cmd_talk(command,
-		             "'%s': missing parameter keyword.",
+		             "missing %s parameter keyword",
 		             parm->super.name);
 		return -EINVAL;
 	}
@@ -381,7 +436,7 @@ cly_arg_parse_kword_parm(const struct cly_arg * argument,
 			return 1;
 	}
 
-	cly_cmd_talk(command, "'%s': invalid %s parameter keyword.",
+	cly_cmd_talk(command, "'%s': invalid %s parameter keyword",
 	             str,
 	             parm->super.name);
 
@@ -448,72 +503,31 @@ cly_arg_complete_kword_term(const struct cly_arg_kword_term * terminal,
 	}
 }
 
-static bool
-cly_arg_kwork_already_completed(const struct cly_arg_kword_parm * parm,
-                                int                               argc,
-                                const char * const                argv[])
-{
-	cly_arg_assert_kword_parm(parm);
-
-	int a;
-
-	for (a = 0; a < argc; a++) {
-		const char * arg = argv[a];
-
-		if (!strncmp(arg, parm->super.name, parm->super.len) &&
-		    arg[parm->super.len] == '=')
-			return true;
-	}
-
-	return false;
-}
-
 static void
-_cly_arg_complete_kword_parm(const struct cly_arg * argument,
-                             const char *           word,
-                             size_t                 length,
-                             struct cly_match *     matches)
+_cly_arg_complete_kword_parm(const struct cly_arg_kword_parm * parameter,
+                             const char *                      word,
+                             size_t                            length,
+                             struct cly_match *                matches)
 {
-	cly_arg_assert_kword_parm((const struct cly_arg_kword_parm *)argument);
+	cly_arg_assert_kword_parm(parameter);
 	cly_match_assert(matches);
 
-	const struct cly_arg_kword_parm * parm =
-		(const struct cly_arg_kword_parm *)argument;
+	if (cly_arg_complete_parm_name((const struct cly_arg_parm *) parameter,
+	                               word,
+	                               length,
+	                               matches))
+		return;
 
-	if (length <= parm->super.len) {
-		if (!length || !memcmp(word, parm->super.name, length)) {
-			char * name;
-			int    ret __unused;
-
-			ret = cly_asprintf(&name, "%s=", parm->super.name);
-			cly_assert((size_t)ret == (parm->super.len + 1));
-
-			/*
-			 * Give ownership of `name' to `matches'. Allocated
-			 * string ownership will be transfered from `matches' to
-			 * readline(3) by cly_shell_complete().
-			 * Readline(3) will free(3) it at completion process
-			 * termination time.
-			 */
-			cly_match_push(matches, name);
-
-			/*
-			 * Disable appending the completion character after a
-			 * selected match.
-			 */
-			cly_shell_suppress_complete_char();
-		}
-	}
-	else if (!memcmp(word, parm->super.name, parm->super.len) &&
-		 (word[parm->super.len] == '=')) {
+	if (!memcmp(word, parameter->super.name, parameter->super.len) &&
+	    (word[parameter->super.len] == '=')) {
 		unsigned int t;
 
-		word = &word[parm->super.len + 1];
-		length -= parm->super.len + 1;
+		word = &word[parameter->super.len + 1];
+		length -= parameter->super.len + 1;
 
-		for (t = 0; t < parm->nr; t++)
-			cly_arg_complete_kword_term(&parm->terms[t],
-			                            parm,
+		for (t = 0; t < parameter->nr; t++)
+			cly_arg_complete_kword_term(&parameter->terms[t],
+			                            parameter,
 			                            word,
 			                            length,
 			                            matches);
@@ -521,7 +535,7 @@ _cly_arg_complete_kword_parm(const struct cly_arg * argument,
 		if (cly_match_count(matches))
 			cly_shell_enroll_display_compl(
 				cly_arg_display_kword_list,
-				(void *)parm);
+				(void *)parameter);
 	}
 }
 
@@ -545,8 +559,10 @@ cly_arg_complete_kword_parm(const struct cly_arg * argument,
 	const struct cly_arg_kword_parm * parm =
 		(const struct cly_arg_kword_parm *)argument;
 
-	if (!cly_arg_kwork_already_completed(parm, argc, argv))
-		_cly_arg_complete_kword_parm(argument, word, length, matches);
+	if (!cly_arg_parm_already_completed((const struct cly_arg_parm *)parm,
+	                                    argc,
+	                                    argv))
+		_cly_arg_complete_kword_parm(parm, word, length, matches);
 }
 
 static const struct cly_arg_ops cly_arg_kword_parm_ops = {

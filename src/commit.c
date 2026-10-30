@@ -16,41 +16,32 @@ static int
 cly_commit_exec_work(struct cly_work * work, struct cly_context * context)
 {
 	const struct cly_commit_work * wk = (struct cly_commit_work *)work;
-	sr_session_ctx_t **            sess = cly_cand_session(context);
+	sr_session_ctx_t *             sess = *cly_cand_session(context);
 	sr_error_t                     err;
 
-	if (!*sess) {
+	if (!sess) {
 		cly_cmd_talk(wk->cmd, "no ongoing edition");
 		return 0;
 	}
 
-	if (srepo_has_changes(*sess)) {
-		err = srepo_apply_changes(*sess);
-		if (err != SR_ERR_OK)
-			goto err;
+	cly_assert(!srepo_has_changes(sess));
+	err = srepo_validate(sess, NULL);
+	if (err != SR_ERR_OK) {
+		cly_cmd_talk(wk->cmd, "invalid editions: %s", sr_strerror(err));
+		return -EINVAL;
 	}
-	else
-		cly_cmd_talk(wk->cmd, "no edition to commit");
 
-	err = srepo_session_stop(*sess);
-	if (err != SR_ERR_OK)
-		goto err;
-
-	cly_info("exited edition mode");
-	*sess = NULL;
+	srepo_switch_dstore(sess, SR_DS_RUNNING);
+	err = srepo_copy_config(sess, NULL, SR_DS_CANDIDATE);
+	srepo_switch_dstore(sess, SR_DS_CANDIDATE);
+	if (err != SR_ERR_OK) {
+		cly_cmd_talk(wk->cmd,
+		             "cannot commit editions: %s",
+		             sr_strerror(err));
+		return -EPERM;
+	}
 
 	return 0;
-
-err:
-	/*
-	 *  Leave edition as-is so that the user may continue in edition mode to
-	 * fix things.
-	 * He will still be able to discard current editions thanks to the
-	 * `discard' command.
-	 */
-	cly_cmd_talk(wk->cmd, "cannot commit editions: %s", sr_strerror(err));
-
-	return -EPERM;
 }
 
 static const struct cly_work_ops cly_commit_work_ops = {

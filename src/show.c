@@ -8,7 +8,6 @@
 #include "show.h"
 #include "cly.h"
 #include <srutils/srepo/data.h>
-#include <srutils/srepo/schema.h>
 
 enum cly_data_format {
 	CLY_TABLE_DATA_FMT = 0,
@@ -328,7 +327,6 @@ cly_show_create_cmd(struct cly_show_cmd **     command,
 
 	/* Cannot fail. */
 	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
-	cly_dir_work_createn_add_arg(false, (struct cly_node *)choice);
 
 	/*
 	 * No need to check for returned code since this cannot fail with the
@@ -410,17 +408,6 @@ err:
 }
 
 static bool
-cly_show_filter_config_node(const struct lysc_node * node)
-{
-	cly_assert(node);
-	cly_assert(srepo_sch_node_type(node) == LYS_LEAF);
-
-	return (srepo_sch_conf_flags(node) == LYS_CONFIG_W) &&
-	       !(srepo_sch_status_flags(node) &
-	         (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC));
-}
-
-static bool
 cly_show_filter_oper_node(const struct lysc_node * node)
 {
 	cly_assert(node);
@@ -443,9 +430,12 @@ cly_show_init_config_cmd(struct cly_srepo_table *   table,
 
 	return cly_srepo_table_init(table,
 	                            (const struct lysc_node_container *)node,
-	                            cly_show_filter_config_node,
+	                            cly_filter_config_leaf,
 	                            context);
 }
+
+#define Add support to show candidate datastore content when in edition mode
+#define Add support to show candidate / running datastores diff when in edition mode
 
 int
 cly_show_make_config_cmd(struct cly_dir *                   directory,
@@ -536,7 +526,7 @@ cly_show_init_config_list_cmd(struct cly_srepo_table *   table,
 
 	return cly_srepo_table_init_list(table,
 	                                 node,
-	                                 cly_show_filter_config_node,
+	                                 cly_filter_config_leaf,
 	                                 context);
 }
 

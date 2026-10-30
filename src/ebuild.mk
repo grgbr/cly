@@ -43,6 +43,7 @@ cly-objs       := common.o \
                   table.o \
                   srepo_table.o \
                   show.o \
+                  set.o \
                   \
                   list.o \
                   cd.o \
@@ -53,6 +54,7 @@ cly-objs       := common.o \
                   edit.o \
                   commit.o \
                   discard.o \
+                  exit.o \
                   quit.o \
                   \
                   build.o \

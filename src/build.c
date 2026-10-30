@@ -1,7 +1,7 @@
 #include "build.h"
 #include "cly.h"
 #include "show.h"
-#include <srutils/srepo/schema.h>
+#include "set.h"
 
 /******************************************************************************
  * Command line hierarchy builder utilities.
@@ -315,6 +315,8 @@ cly_sch_node_type_str(const struct lysc_node * node)
 
 #endif /* defined(CONFIG_CLY_DEBUG) */
 
+#warning TODO: complete set command support
+
 static int
 cly_build_process_cont(struct cly_build_stat *  state,
                        const struct lysc_node * node,
@@ -481,8 +483,8 @@ cly_build_handle_topcont(struct cly_build_stat *            state __unused,
 		int              ret;
 
 		/*
-		 * Create the directory entry related to the container
-		 * given in argument.
+		 * Create the directory entry related to the container given in
+		 * argument.
 		 */
 		ret = cly_build_top_dir(&dir,
 		                        (const struct lysc_node *)
@@ -503,13 +505,21 @@ cly_build_handle_topcont(struct cly_build_stat *            state __unused,
 			return srepo_sys_error(ret);
 
 		/*
-		 * Create and attach a show operational state command to
-		 * the directory just created.
+		 * Create and attach a show operational state command to the
+		 * directory just created.
 		 */
 		ret = cly_show_make_oper_cmd(dir,
 		                             container,
 		                             "status",
 		                             builder->ctx);
+		if (ret)
+			return srepo_sys_error(ret);
+
+		/*
+		 * Create and attach a set configuration command to the
+		 * directory just created.
+		 */
+		ret = cly_set_make_cmd(dir, container, "set", builder->ctx);
 		if (ret)
 			return srepo_sys_error(ret);
 

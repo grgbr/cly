@@ -24,6 +24,7 @@ cly_edit_exec_work(struct cly_work *    work, struct cly_context * context)
 		return 0;
 	}
 
+#warning sr_lock() candidate store
 	err = srepo_session_start(context->conn, SR_DS_CANDIDATE, sess);
 	if (err == SR_ERR_OK) {
 		cly_info("entered edition mode");

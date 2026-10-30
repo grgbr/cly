@@ -1,7 +1,6 @@
 #include "srepo_table.h"
 #include "cly.h"
 #include <srutils/srepo/data.h>
-#include <srutils/srepo/schema.h>
 
 static void
 cly_srepo_table_set_key_cell(struct libscols_cell *  cell,
@@ -87,7 +86,7 @@ cly_srepo_table_load(struct cly_table *         table,
 
 			err = srepo_dat_find_node(
 				cont->tree,
-				scl->name,
+				srepo_sch_node_name(scl),
 				(struct lyd_node **)&dtl);
 
 			cell = cly_table_line_get_cell(ln, 1);
@@ -130,7 +129,7 @@ static const struct cly_table_ops cly_srepo_table_ops = {
 int
 cly_srepo_table_init(struct cly_srepo_table *           table,
                      const struct lysc_node_container * container,
-                     cly_srepo_table_filter_node_fn *   filter,
+                     cly_filter_node_fn *               filter,
                      const struct cly_context *         context)
 {
 	cly_assert(table);
@@ -161,7 +160,10 @@ cly_srepo_table_init(struct cly_srepo_table *           table,
 			cly_table_line_set_userdata(ln, (void *)leaf);
 
 			cell = cly_table_line_get_cell(ln, 0);
-			cly_table_cell_set_data(cell, leaf->name);
+			cly_table_cell_set_data(
+				cell,
+				srepo_sch_node_name((const struct lysc_node *)
+				                    leaf));
 		}
 	}
 
@@ -233,7 +235,7 @@ srepo_table_process_list_entry(sr_session_ctx_t *      session __unused,
 			}
 
 			err = srepo_dat_find_node(ent,
-			                          scl->name,
+			                          srepo_sch_node_name(scl),
 			                          (struct lyd_node **)&dtl);
 			if (err == SR_ERR_OK)
 				cly_srepo_table_set_key_cell(cell,
@@ -244,7 +246,7 @@ srepo_table_process_list_entry(sr_session_ctx_t *      session __unused,
 		}
 		else {
 			err = srepo_dat_find_node(entry,
-			                          scl->name,
+			                          srepo_sch_node_name(scl),
 			                          (struct lyd_node **)&dtl);
 			if (err == SR_ERR_OK)
 				cly_srepo_table_set_node_cell(cell,
@@ -403,10 +405,10 @@ cly_srepo_table_fini_array(struct cly_srepo_table_array * array)
 }
 
 static int
-cly_srepo_table_probe_fields(const struct lysc_node *         list,
-                             struct cly_srepo_table_array *   keys,
-                             struct cly_srepo_table_array *   fields,
-                             cly_srepo_table_filter_node_fn * filter)
+cly_srepo_table_probe_fields(const struct lysc_node *       list,
+                             struct cly_srepo_table_array * keys,
+                             struct cly_srepo_table_array * fields,
+                             cly_filter_node_fn *           filter)
 {
 	cly_assert(list);
 	cly_srepo_table_assert_array(keys);
@@ -476,7 +478,10 @@ cly_srepo_table_new_col(struct cly_srepo_table * table,
 
 	struct libscols_column * col;
 
-	col = cly_table_new_col(&table->super, node->name, whint, flags);
+	col = cly_table_new_col(&table->super,
+	                        srepo_sch_node_name(node),
+	                        whint,
+	                        flags);
 	if (!col) {
 		cly_assert(errno != ENOBUFS);
 		return -errno;
@@ -490,10 +495,10 @@ cly_srepo_table_new_col(struct cly_srepo_table * table,
 }
 
 int
-cly_srepo_table_init_list(struct cly_srepo_table *         table,
-                          const struct lysc_node *         list,
-                          cly_srepo_table_filter_node_fn * filter,
-                          const struct cly_context *       context)
+cly_srepo_table_init_list(struct cly_srepo_table *   table,
+                          const struct lysc_node *   list,
+                          cly_filter_node_fn *       filter,
+                          const struct cly_context * context)
 {
 	cly_assert(table);
 	cly_assert(list);

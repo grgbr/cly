@@ -152,6 +152,30 @@ struct cly_arg_parm {
 	size_t         len;
 };
 
+#define cly_arg_assert_parm(_parm) \
+	cly_assert(_parm); \
+	cly_arg_assert(&(_parm)->super); \
+	cly_assert((_parm)->name); \
+	cly_assert((_parm)->len); \
+	cly_assert((_parm)->len < CLY_ARG_MAX); \
+	cly_assert(strnlen((_parm)->name, CLY_ARG_MAX) == (_parm)->len)
+
+extern bool
+cly_arg_parm_already_completed(const struct cly_arg_parm * parm,
+                               int                         argc,
+                               const char * const          argv[]);
+
+extern bool
+cly_arg_complete_parm_name(const struct cly_arg_parm * parameter,
+                           const char *                word,
+                           size_t                      length,
+                           struct cly_match *          matches);
+
+extern int
+cly_arg_setup_parm(struct cly_arg_parm *      parameter,
+                   const char *               name,
+                   const struct cly_arg_ops * opers);
+
 extern int
 cly_arg_create_parm(struct cly_arg_parm **     parameter,
                     const char *               name,

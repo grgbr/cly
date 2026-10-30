@@ -9,6 +9,7 @@
 #include "edit.h"
 #include "commit.h"
 #include "discard.h"
+#include "exit.h"
 #include "quit.h"
 #include <utils/signal.h>
 
@@ -124,7 +125,7 @@ cly_parse(struct cly_context * context, int argc, const char * const argv[])
 		return 0;
 
 	if (!ret) {
-		cly_talk("'%s': no such command.", argv[0]);
+		cly_talk("'%s': no such command", argv[0]);
 		return -EINVAL;
 	}
 
@@ -363,6 +364,7 @@ cly_init(struct cly_context * context)
 	cly_edit_build_cmd(&context->root);
 	cly_commit_build_cmd(&context->root);
 	cly_disc_build_cmd(&context->root);
+	cly_exit_build_cmd(&context->root);
 	cly_quit_build_cmd(&context->root);
 
 	ret = cly_build_from_schema(context);
