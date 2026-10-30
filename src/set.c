@@ -1,4 +1,112 @@
-#if 0
+struct cly_assign {
+	const struct lysc_node * scn;
+	const char *             val;
+};
+
+struct cly_set_work {
+	struct cly_work        super;
+	const struct cly_cmd * cmd;
+	unsigned int           cnt;
+	unsigned int           nr;
+	struct cly_assign      assign[];
+};
+
+static int
+cly_set_exec_work(struct cly_work * work, struct cly_context * context)
+{
+	cly_set_assert_work((const struct cly_set_work *)work);
+	cly_cmd_assert(((const struct cly_set_work *)work)->cmd);
+	cly_assert_context(context);
+
+	const struct cly_set_work * wk = (const struct cly_set_work *)work;
+	int                         ret;
+
+	ret = cly_dir_work_search(&wk->super, context, &dir);
+	if (ret)
+		return ret;
+
+	/*
+	 * Given the directory descriptor found above, display its state related
+	 * informations.
+	 */
+	switch (wk->format) {
+	case CLY_TABLE_DATA_FMT:
+		ret = cly_show_table(&cmd->super,
+		                     cmd->table,
+		                     cmd->flags,
+		                     context);
+		break;
+
+	case CLY_JSON_DATA_FMT:
+		ret = cly_show_format(&cmd->super,
+		                      dir->sch_node,
+		                      cmd->flags,
+		                      LYD_JSON,
+		                      context);
+		break;
+
+	case CLY_XML_DATA_FMT:
+		ret = cly_show_format(&cmd->super,
+		                      dir->sch_node,
+		                      cmd->flags,
+		                      LYD_XML,
+		                      context);
+		break;
+
+	default:
+		cly_assert(0);
+	}
+
+	return ret;
+}
+
+static const struct cly_work_ops cly_set_work_ops = {
+	.exec    = cly_set_exec_work,
+	.release = cly_null_release_work
+};
+
+static struct cly_set_work *
+cly_set_create_work(unsigned int nr, const struct cly_cmd * command)
+{
+#define CLY_SET_WORK_ASSIGN_NR (128U)
+	cly_assert(nr);
+	cly_assert(nr <= CLY_SET_WORK_ASSIGN_NR);
+	cly_cmd_assert(command);
+
+	struct cly_set_work * wk;
+
+	wk = (struct cly_set_work *)
+	     cly_create_work(sizeof(*wk) + (nr * sizeof(wk->assign[0])),
+	                     &cly_set_work_ops);
+	cly_assert(wk);
+
+	wk->cmd = command;
+	wk->cnt = 0;
+	wk->nr = nr;
+
+	return wk;
+}
+
+static inline void
+cly_set_work_destroy(struct cly_set_work * work)
+{
+	cly_destroy_work(&work->super);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 static int
 cly_set_parse_leaf_parm(const struct cly_arg * argument,
                         const struct cly_cmd * command,
@@ -72,7 +180,6 @@ static const struct cly_arg_ops cly_set_leaf_parm_ops = {
 	.parse    = cly_set_parse_leaf_parm
 	.complete = cly_set_complete_leaf_parm
 };
-#endif
 
 static bool
 cly_set_filter_arg_node(const struct lysc_node * node)
@@ -85,6 +192,90 @@ cly_set_filter_arg_node(const struct lysc_node * node)
 	       !(srepo_sch_status_flags(node) &
 	         (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC));
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+static int
+cly_show_parse_cmd(const struct cly_cmd * command,
+                   const struct cly_dir * directory,
+                   struct cly_context *   context,
+                   int                    argc,
+                   const char * const     argv[])
+{
+	cly_show_assert_cmd((const struct cly_show_cmd *)command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(argv);
+
+	struct cly_show_work * wk;
+	int                    ret;
+
+	/* Cannot fail. */
+	wk = (struct cly_show_work *)
+	     cly_dir_work_create(sizeof(*wk), command, &cly_show_work_ops);
+	wk->format = CLY_TABLE_DATA_FMT;
+
+	ret = cly_cmd_parse_args(command, directory, context, argc, argv, wk);
+	if (ret < 0)
+		goto destroy;
+
+	cly_assert(ret == argc);
+	ret = cly_sched_work(context, (struct cly_work *)wk);
+	if (ret) {
+		cly_cmd_talk(command, "cannot schedule work");
+		goto destroy;
+	}
+
+	return argc;
+
+destroy:
+	cly_dir_work_destroy((struct cly_dir_work *)wk);
+
+	return ret;
+}
+
+static void
+cly_set_fini_cmd(struct cly_cmd * command)
+{
+	struct cly_srepo_table * tbl = ((struct cly_show_cmd *)command)->table;
+
+	cly_srepo_table_fini(tbl);
+	cly_free(tbl);
+}
+
+static const struct cly_cmd_ops cly_set_cmd_ops = {
+	.parse    = cly_set_parse_cmd,
+	.complete = cly_cmd_complete_args,
+	.fini     = cly_set_fini_cmd
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 static int
 cly_set_create_cmd(struct cly_show_cmd **     command,
