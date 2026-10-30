@@ -1,9 +1,14 @@
+struct cly_assign_cmd {
+	struct cly_cmd super;
+	char *         path;
+};
+
 struct cly_assign {
 	const struct lysc_node * scn;
 	const char *             val;
 };
 
-struct cly_set_work {
+struct cly_assign_work {
 	struct cly_work        super;
 	const struct cly_cmd * cmd;
 	unsigned int           cnt;
@@ -11,73 +16,74 @@ struct cly_set_work {
 	struct cly_assign      assign[];
 };
 
+#define CLY_ASSIGN_WORK_NR (128U)
+
 static int
 cly_set_exec_work(struct cly_work * work, struct cly_context * context)
 {
-	cly_set_assert_work((const struct cly_set_work *)work);
-	cly_cmd_assert(((const struct cly_set_work *)work)->cmd);
+	cly_assign_assert_work((const struct cly_assign_work *)work);
+	cly_assign_cmd_assert((const struct cly_assign_cmd *)
+	                      ((const struct cly_assign_work *)work)->cmd);
 	cly_assert_context(context);
 
-	const struct cly_set_work * wk = (const struct cly_set_work *)work;
-	int                         ret;
+	const struct cly_assign_work * wk = (const struct cly_assign_work *)
+	                                    work;
+	const struct cly_assign_cmd *  cmd = (const struct cly_assign_cmd *)
+	                                     wk->cmd;
+	sr_session_ctx_t *             sess = *cly_cand_session(context);
+	sr_data_t *                    data;
+	sr_error_t                     ret;
 
-	ret = cly_dir_work_search(&wk->super, context, &dir);
-	if (ret)
-		return ret;
+	if (!sess) {
+		cly_cmd_talk((const struct cly_cmd *)cmd,
+		             "no ongoing edition");
+		return -EPERM;
+	}
 
-	/*
-	 * Given the directory descriptor found above, display its state related
-	 * informations.
-	 */
-	switch (wk->format) {
-	case CLY_TABLE_DATA_FMT:
-		ret = cly_show_table(&cmd->super,
-		                     cmd->table,
-		                     cmd->flags,
-		                     context);
-		break;
+	ret = srepo_dat_load_data(sess, cmd->path, 2, 0, &data);
+	if (ret != SR_ERR_OK) {
+		cly_cmd_talk((const struct cly_cmd *)cmd,
+		             "cannot assign value: %s",
+		             sr_strerror(ret));
+		return -ENOENT;
+	}
 
-	case CLY_JSON_DATA_FMT:
-		ret = cly_show_format(&cmd->super,
-		                      dir->sch_node,
-		                      cmd->flags,
-		                      LYD_JSON,
-		                      context);
-		break;
+	for (a = 0; a < wk->cnt; a++) {
+		const struct cly_assign * assgn = &wk->assign[a];
+		struct lyd_node *         dtl;
 
-	case CLY_XML_DATA_FMT:
-		ret = cly_show_format(&cmd->super,
-		                      dir->sch_node,
-		                      cmd->flags,
-		                      LYD_XML,
-		                      context);
-		break;
-
-	default:
-		cly_assert(0);
+		ret = srepo_dat_find_node(data->tree,
+		                          srepo_sch_node_name(assgn->scn),
+		                          &dtl);
+		if (ret != SR_ERR_OK) {
+			cly_cmd_talk((const struct cly_cmd *)cmd,
+			             "cannot assign value: %s",
+			             sr_strerror(ret));
+			return -ENOENT;
+		}
 	}
 
 	return ret;
 }
 
 static const struct cly_work_ops cly_set_work_ops = {
-	.exec    = cly_set_exec_work,
+	.exec    = cly_assign_exec_work,
 	.release = cly_null_release_work
 };
 
-static struct cly_set_work *
-cly_set_create_work(unsigned int nr, const struct cly_cmd * command)
+static struct cly_assign_work *
+cly_assign_create_work(unsigned int           nr,
+                       const struct cly_cmd * command)
 {
-#define CLY_SET_WORK_ASSIGN_NR (128U)
 	cly_assert(nr);
-	cly_assert(nr <= CLY_SET_WORK_ASSIGN_NR);
+	cly_assert(nr <= CLY_ASSIGN_WORK_NR);
 	cly_cmd_assert(command);
 
-	struct cly_set_work * wk;
+	struct cly_assign_work * wk;
 
-	wk = (struct cly_set_work *)
+	wk = (struct cly_assign_work *)
 	     cly_create_work(sizeof(*wk) + (nr * sizeof(wk->assign[0])),
-	                     &cly_set_work_ops);
+	                     &cly_assign_work_ops);
 	cly_assert(wk);
 
 	wk->cmd = command;
@@ -88,7 +94,7 @@ cly_set_create_work(unsigned int nr, const struct cly_cmd * command)
 }
 
 static inline void
-cly_set_work_destroy(struct cly_set_work * work)
+cly_assign_work_destroy(struct cly_assign_work * work)
 {
 	cly_destroy_work(&work->super);
 }
