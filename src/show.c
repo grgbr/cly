@@ -434,8 +434,8 @@ cly_show_init_config_cmd(struct cly_srepo_table *   table,
 	                            context);
 }
 
-#define Add support to show candidate datastore content when in edition mode
-#define Add support to show candidate / running datastores diff when in edition mode
+#warning Add support to show candidate datastore content when in edition mode
+#warning Add support to show candidate / running datastores diff when in edition mode
 
 int
 cly_show_make_config_cmd(struct cly_dir *                   directory,
