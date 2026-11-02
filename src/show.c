@@ -294,7 +294,7 @@ cly_show_create_cmd(struct cly_show_cmd **     command,
 	srepo_dat_assert_get_flags(flags);
 	cly_assert_context(context);
 
-	struct cly_show_cmd *       cmd = cmd;
+	struct cly_show_cmd *       cmd = NULL;
 	struct cly_srepo_table *    tbl;
 	int                         err;
 	struct cly_arg *            choice;

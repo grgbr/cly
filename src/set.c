@@ -448,7 +448,7 @@ cly_set_create_cmd(struct cly_set_cmd **      command,
 	cly_assert(filter);
 	cly_assert_context(context);
 
-	struct cly_set_cmd *     cmd;
+	struct cly_set_cmd *     cmd = NULL;
 	struct cly_arg *         choice;
 	const struct lysc_node * child;
 	unsigned int             cnt = 0;
