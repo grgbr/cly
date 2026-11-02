@@ -448,7 +448,7 @@ cly_set_create_cmd(struct cly_set_cmd **      command,
 	cly_assert(filter);
 	cly_assert_context(context);
 
-	struct cly_set_cmd *     cmd = NULL;
+	struct cly_set_cmd *     cmd;
 	struct cly_arg *         choice;
 	const struct lysc_node * child;
 	unsigned int             cnt = 0;
@@ -462,7 +462,6 @@ cly_set_create_cmd(struct cly_set_cmd **      command,
 	                     sizeof(*cmd),
 	                     name,
 	                     &cly_set_cmd_ops);
-	cly_assert(cmd);
 
 	/* Cannot fail. */
 	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);

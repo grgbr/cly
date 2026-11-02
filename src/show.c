@@ -294,7 +294,7 @@ cly_show_create_cmd(struct cly_show_cmd **     command,
 	srepo_dat_assert_get_flags(flags);
 	cly_assert_context(context);
 
-	struct cly_show_cmd *       cmd = NULL;
+	struct cly_show_cmd *       cmd;
 	struct cly_srepo_table *    tbl;
 	int                         err;
 	struct cly_arg *            choice;
@@ -308,7 +308,6 @@ cly_show_create_cmd(struct cly_show_cmd **     command,
 	                     sizeof(*cmd),
 	                     name,
 	                     &cly_show_cmd_ops);
-	cly_assert(cmd);
 
 	/*
 	 * Cannot fail since calling cly_show_make_cmd() previously made sure

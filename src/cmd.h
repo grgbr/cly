@@ -41,7 +41,7 @@ struct cly_cmd {
 	struct cly_node            super;
 	const struct cly_cmd_ops * ops;
 	const char *               name;
-};
+} __may_alias;
 
 #define cly_cmd_assert(_cmd) \
 	cly_assert(_cmd); \
