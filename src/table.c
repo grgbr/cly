@@ -1,5 +1,4 @@
 #include "table.h"
-#include "cly.h"
 
 #define cly_table_assert_col_label(_label) \
 	cly_assert(_label); \
@@ -233,12 +232,11 @@ cly_table_set_userdata(struct cly_table * table, void * data)
 
 void
 cly_table_init(struct cly_table *           table,
-               const struct cly_context *   context,
+               bool                         color,
                bool                         nohead,
                const struct cly_table_ops * opers)
 {
 	cly_assert(table);
-	cly_assert_context(context);
 	cly_table_assert_ops(opers);
 
 	struct libscols_table * tbl;
@@ -250,7 +248,7 @@ cly_table_init(struct cly_table *           table,
 	}
 
 	scols_table_enable_ascii(tbl, 1);
-	scols_table_enable_colors(tbl, (int)cly_has_colors(context));
+	scols_table_enable_colors(tbl, (int)color);
 	scols_table_enable_noheadings(tbl, nohead);
 
 	table->ops = opers;
@@ -259,18 +257,16 @@ cly_table_init(struct cly_table *           table,
 
 void
 cly_table_init_from_desc(struct cly_table *            table,
-                         const struct cly_context *    context,
                          const struct cly_table_desc * descriptor,
                          const struct cly_table_ops *  opers)
 {
 	cly_assert(table);
-	cly_assert_context(context);
 	cly_table_assert_desc(descriptor);
 	cly_table_assert_ops(opers);
 
 	unsigned int c;
 
-	cly_table_init(table, context, descriptor->nohead, opers);
+	cly_table_init(table, descriptor->color, descriptor->nohead, opers);
 
 	for (c = 0; c < descriptor->nr; c++) {
 		const struct cly_table_column_desc * cdesc;

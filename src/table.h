@@ -39,6 +39,7 @@ struct cly_table_column_desc {
 	}
 
 struct cly_table_desc {
+	bool                                 color;
 	bool                                 nohead;
 	unsigned int                         nr;
 	const struct cly_table_column_desc * cols;
@@ -48,8 +49,9 @@ struct cly_table_desc {
  * TODO: Add static assert support to make sure that the following is true.
  * - 0 < stroll_array_nr(_cols) < CLY_TABLE_COLUMN_MAX
  */
-#define CLY_TABLE_SETUP_DESC(_nohead, _cols) \
+#define CLY_TABLE_SETUP_DESC(_color, _nohead, _cols) \
 	{ \
+		.color  = _color, \
 		.nohead = _nohead, \
 		.cnt    = stroll_array_nr(_cols), \
 		.nr     = stroll_array_nr(_cols), \
@@ -59,9 +61,7 @@ struct cly_table_desc {
 struct cly_table;
 struct cly_context;
 
-typedef int (cly_table_load_fn)(struct cly_table *,
-                                const struct cly_context *,
-                                void *);
+typedef int (cly_table_load_fn)(struct cly_table *, void *);
 
 typedef void (cly_table_fini_fn)(struct cly_table *);
 
@@ -88,14 +88,11 @@ extern int
 cly_table_show(const struct cly_table * table, bool maxout, FILE * stdio);
 
 static inline int
-cly_table_load(struct cly_table *         table,
-               const struct cly_context * context,
-               void *                     data)
+cly_table_load(struct cly_table * table, void * data)
 {
 	cly_table_assert(table);
-	cly_assert(context);
 
-	return table->ops->load(table, context, data);
+	return table->ops->load(table, data);
 }
 
 extern void
@@ -253,13 +250,12 @@ cly_table_set_userdata(struct cly_table * table, void * data);
 
 extern void
 cly_table_init(struct cly_table *           table,
-               const struct cly_context *   context,
+               bool                         color,
                bool                         nohead,
                const struct cly_table_ops * opers);
 
 extern void
 cly_table_init_from_desc(struct cly_table *            table,
-                         const struct cly_context *    context,
                          const struct cly_table_desc * descriptor,
                          const struct cly_table_ops *  opers);
 

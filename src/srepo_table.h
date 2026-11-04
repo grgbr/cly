@@ -16,17 +16,25 @@ struct cly_srepo_table {
 	cly_assert(_table); \
 	cly_table_assert(&(_table)->super)
 
+struct cly_srepo_table_data {
+	sr_session_ctx_t *   sess;
+	sr_get_oper_flag_t   flags;
+	const char * const * style;
+};
+
 extern int
 cly_srepo_table_init(struct cly_srepo_table *           table,
                      const struct lysc_node_container * container,
                      cly_filter_node_fn *               filter,
-                     const struct cly_context *         context);
+                     bool                               color,
+                     const char * const *               style);
 
 extern int
-cly_srepo_table_init_list(struct cly_srepo_table *   table,
-                          const struct lysc_node *   list,
-                          cly_filter_node_fn *       filter,
-                          const struct cly_context * context);
+cly_srepo_table_init_list(struct cly_srepo_table * table,
+                          const struct lysc_node * list,
+                          cly_filter_node_fn *     filter,
+                          bool                     color,
+                          const char * const *     style);
 
 static inline void
 cly_srepo_table_fini(struct cly_srepo_table * table)

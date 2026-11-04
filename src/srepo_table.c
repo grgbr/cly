@@ -2,6 +2,11 @@
 #include "cly.h"
 #include <srutils/srepo/data.h>
 
+#define cly_srepo_table_assert_data(_data) \
+	cly_assert(_data); \
+	cly_assert((_data)->sess); \
+	srepo_dat_assert_get_flags((_data)->flags)
+
 static void
 cly_srepo_table_set_key_cell(struct libscols_cell *  cell,
                              const char * const *    style,
@@ -57,23 +62,20 @@ cly_srepo_table_set_err_cell(struct libscols_cell * cell,
 }
 
 static int
-cly_srepo_table_load(struct cly_table *         table,
-                     const struct cly_context * context,
-                     void *                     data)
+cly_srepo_table_load(struct cly_table * table, void * data)
 {
 	cly_srepo_table_assert((const struct cly_srepo_table *)table);
-	cly_assert_context(context);
-	srepo_dat_assert_get_flags((sr_get_oper_flag_t)data);
+	cly_srepo_table_assert_data((const struct cly_srepo_table_data *)data);
 
-	sr_data_t *            cont;
-	const char * const *   style = cly_get_style(context);
-	unsigned int           l;
-	struct libscols_line * ln;
+	sr_data_t *                         cont;
+	const struct cly_srepo_table_data * dat = data;
+	unsigned int                        l;
+	struct libscols_line *              ln;
 
-	if (srepo_dat_load_data(cly_oper_session(context),
+	if (srepo_dat_load_data(dat->sess,
 	                        cly_table_get_userdata(table),
 	                        2,
-	                        (sr_get_oper_flag_t)data,
+	                        dat->flags,
 	                        &cont) == SR_ERR_OK) {
 		cly_table_foreach_line(table, l, ln) {
 			const struct lysc_node * scl;
@@ -93,12 +95,14 @@ cly_srepo_table_load(struct cly_table *         table,
 			cly_assert(cell);
 
 			if (err == SR_ERR_OK)
-				cly_srepo_table_set_node_cell(cell, style, dtl);
+				cly_srepo_table_set_node_cell(cell,
+				                              dat->style,
+				                              dtl);
 			else if ((err == SR_ERR_NOT_FOUND) &&
 			         !srepo_sch_is_mandatory(scl))
 				cly_srepo_table_clear_node_cell(cell);
 			else
-				cly_srepo_table_set_err_cell(cell, style);
+				cly_srepo_table_set_err_cell(cell, dat->style);
 		}
 
 		srepo_dat_release_data(cont);
@@ -107,7 +111,7 @@ cly_srepo_table_load(struct cly_table *         table,
 		cly_table_foreach_line(table, l, ln)
 			cly_srepo_table_set_err_cell(
 				cly_table_line_get_cell(ln, 1),
-				style);
+				dat->style);
 	}
 
 	return 0;
@@ -130,18 +134,18 @@ int
 cly_srepo_table_init(struct cly_srepo_table *           table,
                      const struct lysc_node_container * container,
                      cly_filter_node_fn *               filter,
-                     const struct cly_context *         context)
+                     bool                               color,
+                     const char * const *               style)
 {
 	cly_assert(table);
 	cly_assert(container);
 	cly_assert(filter);
-	cly_assert_context(context);
 
 	struct libscols_column * col;
 	const struct lysc_node * child;
 	int                      err;
 
-	cly_table_init(&table->super, context, true, &cly_srepo_table_ops);
+	cly_table_init(&table->super, color, true, &cly_srepo_table_ops);
 
 	cly_assert(sizeof("Attribute") <= CLY_TABLE_LABEL_MAX);
 	col = cly_table_new_col(&table->super, "Attribute", 0.3, 0);
@@ -175,9 +179,8 @@ cly_srepo_table_init(struct cly_srepo_table *           table,
 	cly_table_set_userdata(&table->super,
 	                       srepo_sch_node_path((const struct lysc_node *)
 	                                           container));
-	cly_table_col_set_color(col,
-	                        cly_style_get_color(cly_get_style(context),
-	                                            CLY_LABEL_STYLE_KIND));
+	cly_table_col_set_color(col, cly_style_get_color(style,
+	                                                 CLY_LABEL_STYLE_KIND));
 
 	return 0;
 
@@ -281,29 +284,26 @@ cly_srepo_table_load_err_entry(const struct cly_table * table,
 }
 
 static int
-cly_srepo_table_load_list(struct cly_table *         table,
-                          const struct cly_context * context,
-                          void *                     data)
+cly_srepo_table_load_list(struct cly_table * table, void * data)
 {
 	cly_srepo_table_assert((const struct cly_srepo_table *)table);
-	cly_assert_context(context);
-	srepo_dat_assert_get_flags((sr_get_oper_flag_t)data);
+	cly_srepo_table_assert_data((const struct cly_srepo_table_data *)data);
 
-	const char * const *                    style = cly_get_style(context);
+	const struct cly_srepo_table_data *     dat = data;
 	const struct cly_srepo_table_entry_proc proc = {
 		.table = (const struct cly_srepo_table *)table,
-		.style = style
+		.style = dat->style
 	};
 
 	cly_table_remove_lines(table);
 
-	if (srepo_dat_loadn_iter(cly_oper_session(context),
+	if (srepo_dat_loadn_iter(dat->sess,
 	                         cly_table_get_userdata(table),
 	                         2,
-	                         (sr_get_oper_flag_t)data,
+	                         dat->flags,
 	                         srepo_table_process_list_entry,
 	                         (void *)&proc) != SR_ERR_OK)
-		cly_srepo_table_load_err_entry(table, style);
+		cly_srepo_table_load_err_entry(table, dat->style);
 
 	return 0;
 }
@@ -498,14 +498,14 @@ int
 cly_srepo_table_init_list(struct cly_srepo_table *   table,
                           const struct lysc_node *   list,
                           cly_filter_node_fn *       filter,
-                          const struct cly_context * context)
+                          bool                       color,
+                          const char * const *       style)
 {
 	cly_assert(table);
 	cly_assert(list);
 	cly_assert((srepo_sch_node_type(list) == LYS_LIST) ||
 	           (srepo_sch_node_type(list) == LYS_CONTAINER));
 	cly_assert(filter);
-	cly_assert_context(context);
 
 	struct cly_srepo_table_array keys;
 	struct cly_srepo_table_array fields;
@@ -529,11 +529,8 @@ cly_srepo_table_init_list(struct cly_srepo_table *   table,
 		goto fini_arrays;
 	}
 
-	cly_table_init(&table->super,
-	               context,
-	               false,
-	               &cly_srepo_table_list_ops);
-	clr = cly_style_get_color(cly_get_style(context), CLY_LABEL_STYLE_KIND);
+	cly_table_init(&table->super, color, false, &cly_srepo_table_list_ops);
+	clr = cly_style_get_color(style, CLY_LABEL_STYLE_KIND);
 
 	cly_srepo_table_array_foreach(&keys, c, node) {
 		err = cly_srepo_table_new_col(table,

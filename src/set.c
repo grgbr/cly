@@ -513,15 +513,14 @@ destroy:
 }
 
 int
-cly_set_make_cmd(struct cly_dir *                   directory,
-                 const struct lysc_node_container * container,
-                 const char *                       name,
-                 const struct cly_context *         context)
+cly_set_make_cmd(struct cly_dir *           directory,
+                 const struct lysc_node *   container,
+                 const char *               name,
+                 const struct cly_context * context)
 {
 	cly_dir_assert(directory);
 	cly_assert(container);
-	cly_assert(srepo_sch_node_type((const struct lysc_node *)container) ==
-	           LYS_CONTAINER);
+	cly_assert(srepo_sch_node_type(container) == LYS_CONTAINER);
 	cly_assert(name);
 	cly_assert_context(context);
 
@@ -543,16 +542,13 @@ cly_set_make_cmd(struct cly_dir *                   directory,
 
 	return cly_set_create_cmd(&cmd,
 	                          directory,
-	                          (const struct lysc_node *)container,
+	                          container,
 	                          name,
 	                          cly_filter_config_leaf,
 	                          context);
 
 err:
-	cly_scn_err((const struct lysc_node *)container,
-	            "cannot create set command '%s': %s",
-	            name,
-	            msg);
+	cly_scn_err(container, "cannot create set command '%s': %s", name, msg);
 
 	return err;
 }

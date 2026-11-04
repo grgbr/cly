@@ -9,16 +9,16 @@ struct lysc_node_container;
 struct lysc_node_list;
 
 extern int
-cly_show_make_config_cmd(struct cly_dir *                   directory,
-                         const struct lysc_node_container * container,
-                         const char *                       name,
-                         const struct cly_context *         context);
+cly_show_make_config_cmd(struct cly_dir *           directory,
+                         const struct lysc_node *   container,
+                         const char *               name,
+                         const struct cly_context * context);
 
 extern int
-cly_show_make_oper_cmd(struct cly_dir *                   directory,
-                       const struct lysc_node_container * container,
-                       const char *                       name,
-                       const struct cly_context *         context);
+cly_show_make_oper_cmd(struct cly_dir *           directory,
+                       const struct lysc_node *   container,
+                       const char *               name,
+                       const struct cly_context * context);
 
 extern int
 cly_show_make_config_list_cmd(struct cly_dir *      directory,

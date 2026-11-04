@@ -188,16 +188,15 @@ cly_build_process_list(struct cly_build_stat *  state,
  ******************************************************************************/
 
 static int
-cly_build_handle_cont(struct cly_build_stat *            state,
-                      const struct lysc_node_container * container,
-                      enum srepo_walk_event              event __unused,
-                      struct cly_build *                 builder)
+cly_build_handle_cont(struct cly_build_stat *  state,
+                      const struct lysc_node * container,
+                      enum srepo_walk_event    event __unused,
+                      struct cly_build *       builder)
 {
 	cly_assert(state);
 	cly_assert(state->dir);
 	cly_assert(container);
-	cly_assert(srepo_sch_node_type((const struct lysc_node *)container) ==
-	           LYS_CONTAINER);
+	cly_assert(srepo_sch_node_type(container) == LYS_CONTAINER);
 	cly_assert(event == SREPO_PRE_WALK_EVT);
 	cly_build_assert(builder);
 
@@ -330,11 +329,7 @@ cly_build_process_cont(struct cly_build_stat *  state,
 
 	switch (srepo_sch_node_type(node)) {
 	case LYS_CONTAINER:
-		return cly_build_handle_cont(
-			state,
-			(const struct lysc_node_container *)node,
-			event,
-			builder);
+		return cly_build_handle_cont(state, node, event, builder);
 
 	case LYS_LIST:
 		return cly_build_handle_list(state, node, event, builder);
@@ -465,20 +460,19 @@ cly_build_top_dir(struct cly_dir **        directory,
 }
 
 static int
-cly_build_handle_topcont(struct cly_build_stat *            state __unused,
-                         const struct lysc_node_container * container,
-                         enum srepo_walk_event              event __unused,
-                         struct cly_build *                 builder)
+cly_build_handle_topcont(struct cly_build_stat *  state __unused,
+                         const struct lysc_node * container,
+                         enum srepo_walk_event    event __unused,
+                         struct cly_build *       builder)
 {
 	cly_assert(state);
 	cly_assert(!state->dir);
 	cly_assert(container);
-	cly_assert(srepo_sch_node_type((const struct lysc_node *)container) ==
-	           LYS_CONTAINER);
+	cly_assert(srepo_sch_node_type(container) == LYS_CONTAINER);
 	cly_assert(event == SREPO_PRE_WALK_EVT);
 	cly_build_assert(builder);
 
-	if (cly_build_node_uptodate((const struct lysc_node *)container)) {
+	if (cly_build_node_uptodate(container)) {
 		struct cly_dir * dir;
 		int              ret;
 
@@ -486,10 +480,7 @@ cly_build_handle_topcont(struct cly_build_stat *            state __unused,
 		 * Create the directory entry related to the container given in
 		 * argument.
 		 */
-		ret = cly_build_top_dir(&dir,
-		                        (const struct lysc_node *)
-		                        container,
-		                        builder->ctx);
+		ret = cly_build_top_dir(&dir, container, builder->ctx);
 		if (ret)
 			return srepo_sys_error(ret);
 
@@ -604,11 +595,7 @@ cly_build_process_module(struct cly_build_stat *  state,
 
 	switch (srepo_sch_node_type(node)) {
 	case LYS_CONTAINER:
-		return cly_build_handle_topcont(
-			state,
-			(const struct lysc_node_container *)node,
-			event,
-			builder);
+		return cly_build_handle_topcont(state, node, event, builder);
 
 	case LYS_LIST:
 		return cly_build_handle_toplist(

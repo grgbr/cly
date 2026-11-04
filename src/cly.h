@@ -163,6 +163,14 @@ cly_cand_session(struct cly_context * context)
 	return &context->cand_sess;
 }
 
+static inline sr_session_ctx_t *
+cly_config_session(const struct cly_context * context)
+{
+	cly_assert_context(context);
+
+	return context->cand_sess ? context->cand_sess : context->oper_sess;
+}
+
 extern void
 cly_chdir(struct cly_context * context, const struct cly_dir * directory);
 
