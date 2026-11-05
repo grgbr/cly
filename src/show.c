@@ -16,15 +16,24 @@ enum cly_data_format {
 	CLY_DATA_FMT_NR
 };
 
+enum cly_data_source {
+	CLY_OPER_DATA_SRC = 0,
+	CLY_EDIT_DATA_SRC,
+	CLY_DATA_SRC_NR
+};
+
 struct cly_show_work {
 	struct cly_dir_work  super;
 	enum cly_data_format format;
+	enum cly_data_source source;
 };
 
 #define cly_show_assert_work(_work) \
 	cly_assert(_work); \
 	cly_assert((_work)->format >= 0); \
-	cly_assert((_work)->format < CLY_DATA_FMT_NR)
+	cly_assert((_work)->format < CLY_DATA_FMT_NR); \
+	cly_assert((_work)->source >= 0); \
+	cly_assert((_work)->source <= CLY_DATA_SRC_NR)
 
 struct cly_show_cmd {
 	struct cly_cmd           super;
@@ -129,7 +138,27 @@ cly_show_exec_config_work(struct cly_work * work, struct cly_context * context)
 	if (ret)
 		return ret;
 
-	sess = cly_config_session(context);
+	switch (wk->source) {
+	case CLY_OPER_DATA_SRC:
+		sess = cly_oper_session(context);
+		break;
+
+	case CLY_EDIT_DATA_SRC:
+		sess = *cly_cand_session(context);
+		if (!sess) {
+			cly_cmd_talk(&cmd->super, "no ongoing edition");
+			return -EPERM;
+		}
+		break;
+
+	case CLY_DATA_SRC_NR:
+		sess = cly_config_session(context);
+		break;
+
+	default:
+		cly_assert(0);
+	}
+
 	if (srepo_session_dstore(sess) == SR_DS_OPERATIONAL)
 		flags |= SR_OPER_NO_STATE;
 
@@ -190,7 +219,14 @@ cly_show_exec_oper_work(struct cly_work * work, struct cly_context * context)
 	if (ret)
 		return ret;
 
-	sess = cly_oper_session(context);
+	switch (wk->source) {
+	case CLY_DATA_SRC_NR:
+		sess = cly_oper_session(context);
+		break;
+
+	default:
+		cly_assert(0);
+	}
 
 	/*
 	 * Given the directory descriptor found above, display its configuration
@@ -261,6 +297,7 @@ cly_show_parse_cmd(const struct cly_cmd *      command,
 	wk = (struct cly_show_work *)
 	     cly_dir_work_create(sizeof(*wk), command, opers);
 	wk->format = CLY_TABLE_DATA_FMT;
+	wk->source = CLY_DATA_SRC_NR;
 
 	ret = cly_cmd_parse_args(command, directory, context, argc, argv, wk);
 	if (ret < 0)
@@ -391,24 +428,52 @@ static const struct cly_arg_kword_term cly_show_format_terms[] = {
 };
 
 static int
-cly_show_create_config_cmd(struct cly_show_cmd **     command,
-                           struct cly_dir *           directory,
-                           const struct lysc_node *   node,
-                           const char *               name,
-                           const struct cly_context * context)
+cly_show_on_oper_match(const struct cly_arg * argument __unused,
+                       const struct cly_cmd * command __unused,
+                       const struct cly_dir * directory __unused,
+                       struct cly_context *   context __unused,
+                       int                    argc __unused,
+                       const char * const     argv[] __unused,
+                       void *                 data)
 {
-	cly_assert(command);
-	cly_dir_assert(directory);
-	cly_assert(node);
-	cly_assert(srepo_sch_node_type(node) == LYS_CONTAINER);
+	((struct cly_show_work *)data)->source = CLY_OPER_DATA_SRC;
+
+	return 0;
+}
+
+static int
+cly_show_on_edit_match(const struct cly_arg * argument __unused,
+                       const struct cly_cmd * command __unused,
+                       const struct cly_dir * directory __unused,
+                       struct cly_context *   context __unused,
+                       int                    argc __unused,
+                       const char * const     argv[] __unused,
+                       void *                 data)
+{
+	((struct cly_show_work *)data)->source = CLY_EDIT_DATA_SRC;
+
+	return 0;
+}
+
+static const struct cly_arg_kword_term cly_show_source_terms[] = {
+	CLY_ARG_KWORD_TERM("oper", cly_show_on_oper_match),
+	CLY_ARG_KWORD_TERM("edit", cly_show_on_edit_match),
+};
+
+static
+struct cly_show_cmd *
+cly_show_create_config_cmd(const char *             name,
+                           struct cly_srepo_table * table,
+                           struct cly_dir *         directory)
+{
 	cly_assert(cly_cmd_name_isok(name));
-	cly_assert_context(context);
+	cly_srepo_table_assert(table);
+	cly_dir_assert(directory);
 
 	struct cly_show_cmd *       cmd;
-	struct cly_srepo_table *    tbl;
-	int                         err;
 	struct cly_arg *            choice;
 	struct cly_arg_kword_parm * fmt;
+	struct cly_arg_kword_parm * src;
 
 	/*
 	 * No need to check for returned code since cly_cmd_create() cannot fail
@@ -418,6 +483,56 @@ cly_show_create_config_cmd(struct cly_show_cmd **     command,
 	                     sizeof(*cmd),
 	                     name,
 	                     &cly_show_config_cmd_ops);
+
+	/* Cannot fail. */
+	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
+
+	/*
+	 * No need to check for returned code since this cannot fail with the
+	 * "format" name argument.
+	 */
+	cly_assert(sizeof("format") <= CLY_ARG_MAX);
+	cly_arg_createn_add_kword_parm(&fmt,
+	                               "format",
+	                               cly_show_format_terms,
+	                               stroll_array_nr(cly_show_format_terms),
+	                               (struct cly_node *)choice);
+
+	/*
+	 * No need to check for returned code since this cannot fail with the
+	 * "source" name argument.
+	 */
+	cly_assert(sizeof("source") <= CLY_ARG_MAX);
+	cly_arg_createn_add_kword_parm(&src,
+	                               "source",
+	                               cly_show_source_terms,
+	                               stroll_array_nr(cly_show_source_terms),
+	                               (struct cly_node *)choice);
+
+	cmd->table = table;
+
+	cly_dir_add_cmd(directory, &cmd->super);
+
+	return cmd;
+}
+
+static int
+cly_show_build_config_cmd(struct cly_show_cmd **     command,
+                          struct cly_dir *           directory,
+                          const struct lysc_node *   node,
+                          const char *               name,
+                          const struct cly_context * context)
+{
+	cly_assert(command);
+	cly_dir_assert(directory);
+	cly_assert(node);
+	cly_assert(srepo_sch_node_type(node) == LYS_CONTAINER);
+	cly_assert(cly_cmd_name_isok(name));
+	cly_assert_context(context);
+
+	struct cly_srepo_table * tbl;
+	struct cly_show_cmd *    cmd;
+	int                      err;
 
 	/*
 	 * Cannot fail since calling cly_show_make_config_cmd() previously made
@@ -435,23 +550,8 @@ cly_show_create_config_cmd(struct cly_show_cmd **     command,
 		goto free;
 	}
 
-	cmd->table = tbl;
-
-	/* Cannot fail. */
-	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
-
-	/*
-	 * No need to check for returned code since this cannot fail with the
-	 * "format" name argument.
-	 */
-	cly_assert(sizeof("format") <= CLY_ARG_MAX);
-	cly_arg_createn_add_kword_parm(&fmt,
-	                               "format",
-	                               cly_show_format_terms,
-	                               stroll_array_nr(cly_show_format_terms),
-	                               (struct cly_node *)choice);
-
-	cly_dir_add_cmd(directory, &cmd->super);
+	cmd = cly_show_create_config_cmd(name, tbl, directory);
+	cly_assert(cmd);
 
 	*command = cmd;
 
@@ -459,7 +559,6 @@ cly_show_create_config_cmd(struct cly_show_cmd **     command,
 
 free:
 	cly_free(tbl);
-	cly_free(cmd);
 
 	return err;
 }
@@ -475,23 +574,16 @@ cly_show_filter_oper_node(const struct lysc_node * node)
 	         (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC));
 }
 
-static int
-cly_show_create_oper_cmd(struct cly_show_cmd **     command,
-                         struct cly_dir *           directory,
-                         const struct lysc_node *   node,
-                         const char *               name,
-                         const struct cly_context * context)
+static struct cly_show_cmd *
+cly_show_create_oper_cmd(const char *             name,
+                         struct cly_srepo_table * table,
+                         struct cly_dir *         directory)
 {
-	cly_assert(command);
-	cly_dir_assert(directory);
-	cly_assert(node);
-	cly_assert(srepo_sch_node_type(node) == LYS_CONTAINER);
 	cly_assert(cly_cmd_name_isok(name));
-	cly_assert_context(context);
+	cly_srepo_table_assert(table);
+	cly_dir_assert(directory);
 
 	struct cly_show_cmd *       cmd;
-	struct cly_srepo_table *    tbl;
-	int                         err;
 	struct cly_arg *            choice;
 	struct cly_arg_kword_parm * fmt;
 
@@ -503,6 +595,45 @@ cly_show_create_oper_cmd(struct cly_show_cmd **     command,
 	                     sizeof(*cmd),
 	                     name,
 	                     &cly_show_oper_cmd_ops);
+
+	/* Cannot fail. */
+	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
+
+	/*
+	 * No need to check for returned code since this cannot fail with the
+	 * "format" name argument.
+	 */
+	cly_assert(sizeof("format") <= CLY_ARG_MAX);
+	cly_arg_createn_add_kword_parm(&fmt,
+	                               "format",
+	                               cly_show_format_terms,
+	                               stroll_array_nr(cly_show_format_terms),
+	                               (struct cly_node *)choice);
+
+	cmd->table = table;
+
+	cly_dir_add_cmd(directory, &cmd->super);
+
+	return cmd;
+}
+
+static int
+cly_show_build_oper_cmd(struct cly_show_cmd **     command,
+                        struct cly_dir *           directory,
+                        const struct lysc_node *   node,
+                        const char *               name,
+                        const struct cly_context * context)
+{
+	cly_assert(command);
+	cly_dir_assert(directory);
+	cly_assert(node);
+	cly_assert(srepo_sch_node_type(node) == LYS_CONTAINER);
+	cly_assert(cly_cmd_name_isok(name));
+	cly_assert_context(context);
+
+	struct cly_srepo_table * tbl;
+	struct cly_show_cmd *    cmd;
+	int                      err;
 
 	/*
 	 * Cannot fail since calling cly_show_make_oper_cmd() previously made
@@ -520,23 +651,8 @@ cly_show_create_oper_cmd(struct cly_show_cmd **     command,
 		goto free;
 	}
 
-	cmd->table = tbl;
-
-	/* Cannot fail. */
-	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
-
-	/*
-	 * No need to check for returned code since this cannot fail with the
-	 * "format" name argument.
-	 */
-	cly_assert(sizeof("format") <= CLY_ARG_MAX);
-	cly_arg_createn_add_kword_parm(&fmt,
-	                               "format",
-	                               cly_show_format_terms,
-	                               stroll_array_nr(cly_show_format_terms),
-	                               (struct cly_node *)choice);
-
-	cly_dir_add_cmd(directory, &cmd->super);
+	cmd = cly_show_create_oper_cmd(name, tbl, directory);
+	cly_assert(cmd);
 
 	*command = cmd;
 
@@ -544,7 +660,6 @@ cly_show_create_oper_cmd(struct cly_show_cmd **     command,
 
 free:
 	cly_free(tbl);
-	cly_free(cmd);
 
 	return err;
 }
@@ -626,7 +741,7 @@ cly_show_make_config_cmd(struct cly_dir *           directory,
 	                         node,
 	                         name,
 	                         context,
-	                         cly_show_create_config_cmd);
+	                         cly_show_build_config_cmd);
 }
 
 int
@@ -645,7 +760,7 @@ cly_show_make_oper_cmd(struct cly_dir *           directory,
 	                         node,
 	                         name,
 	                         context,
-	                         cly_show_create_oper_cmd);
+	                         cly_show_build_oper_cmd);
 }
 
 #if defined(CONFIG_CLY_DEBUG)
@@ -673,11 +788,11 @@ cly_show_is_list_entry(const struct lysc_node * node)
 #endif /* defined(CONFIG_CLY_DEBUG) */
 
 static int
-cly_show_create_config_list_cmd(struct cly_show_cmd **     command,
-                                struct cly_dir *           directory,
-                                const struct lysc_node *   node,
-                                const char *               name,
-                                const struct cly_context * context)
+cly_show_build_config_list_cmd(struct cly_show_cmd **     command,
+                               struct cly_dir *           directory,
+                               const struct lysc_node *   node,
+                               const char *               name,
+                               const struct cly_context * context)
 {
 	cly_assert(command);
 	cly_dir_assert(directory);
@@ -686,20 +801,9 @@ cly_show_create_config_list_cmd(struct cly_show_cmd **     command,
 	cly_assert(cly_cmd_name_isok(name));
 	cly_assert_context(context);
 
-	struct cly_show_cmd *       cmd;
-	struct cly_srepo_table *    tbl;
-	int                         err;
-	struct cly_arg *            choice;
-	struct cly_arg_kword_parm * fmt;
-
-	/*
-	 * No need to check for returned code since cly_cmd_create() cannot fail
-	 * with a command name validated thanks to cly_cmd_name_isok().
-	 */
-	cly_cmd_sized_create((struct cly_cmd **)&cmd,
-	                     sizeof(*cmd),
-	                     name,
-	                     &cly_show_config_cmd_ops);
+	struct cly_srepo_table * tbl;
+	struct cly_show_cmd *    cmd;
+	int                      err;
 
 	/*
 	 * Cannot fail since calling cly_show_make_cmd() previously made sure
@@ -717,23 +821,8 @@ cly_show_create_config_list_cmd(struct cly_show_cmd **     command,
 		goto free;
 	}
 
-	cmd->table = tbl;
-
-	/* Cannot fail. */
-	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
-
-	/*
-	 * No need to check for returned code since this cannot fail with the
-	 * "format" name argument.
-	 */
-	cly_assert(sizeof("format") <= CLY_ARG_MAX);
-	cly_arg_createn_add_kword_parm(&fmt,
-	                               "format",
-	                               cly_show_format_terms,
-	                               stroll_array_nr(cly_show_format_terms),
-	                               (struct cly_node *)choice);
-
-	cly_dir_add_cmd(directory, &cmd->super);
+	cmd = cly_show_create_config_cmd(name, tbl, directory);
+	cly_assert(cmd);
 
 	*command = cmd;
 
@@ -741,17 +830,16 @@ cly_show_create_config_list_cmd(struct cly_show_cmd **     command,
 
 free:
 	cly_free(tbl);
-	cly_free(cmd);
 
 	return err;
 }
 
 static int
-cly_show_create_oper_list_cmd(struct cly_show_cmd **     command,
-                              struct cly_dir *           directory,
-                              const struct lysc_node *   node,
-                              const char *               name,
-                              const struct cly_context * context)
+cly_show_build_oper_list_cmd(struct cly_show_cmd **     command,
+                             struct cly_dir *           directory,
+                             const struct lysc_node *   node,
+                             const char *               name,
+                             const struct cly_context * context)
 {
 	cly_assert(command);
 	cly_dir_assert(directory);
@@ -760,20 +848,9 @@ cly_show_create_oper_list_cmd(struct cly_show_cmd **     command,
 	cly_assert(cly_cmd_name_isok(name));
 	cly_assert_context(context);
 
-	struct cly_show_cmd *       cmd;
-	struct cly_srepo_table *    tbl;
-	int                         err;
-	struct cly_arg *            choice;
-	struct cly_arg_kword_parm * fmt;
-
-	/*
-	 * No need to check for returned code since cly_cmd_create() cannot fail
-	 * with a command name validated thanks to cly_cmd_name_isok().
-	 */
-	cly_cmd_sized_create((struct cly_cmd **)&cmd,
-	                     sizeof(*cmd),
-	                     name,
-	                     &cly_show_oper_cmd_ops);
+	struct cly_srepo_table * tbl;
+	struct cly_show_cmd *    cmd;
+	int                      err;
 
 	/*
 	 * Cannot fail since calling cly_show_make_oper_cmd() previously made
@@ -791,23 +868,8 @@ cly_show_create_oper_list_cmd(struct cly_show_cmd **     command,
 		goto free;
 	}
 
-	cmd->table = tbl;
-
-	/* Cannot fail. */
-	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
-
-	/*
-	 * No need to check for returned code since this cannot fail with the
-	 * "format" name argument.
-	 */
-	cly_assert(sizeof("format") <= CLY_ARG_MAX);
-	cly_arg_createn_add_kword_parm(&fmt,
-	                               "format",
-	                               cly_show_format_terms,
-	                               stroll_array_nr(cly_show_format_terms),
-	                               (struct cly_node *)choice);
-
-	cly_dir_add_cmd(directory, &cmd->super);
+	cmd = cly_show_create_oper_cmd(name, tbl, directory);
+	cly_assert(cmd);
 
 	*command = cmd;
 
@@ -815,7 +877,6 @@ cly_show_create_oper_list_cmd(struct cly_show_cmd **     command,
 
 free:
 	cly_free(tbl);
-	cly_free(cmd);
 
 	return err;
 }
@@ -836,7 +897,7 @@ cly_show_make_config_list_cmd(struct cly_dir *           directory,
 	                         node,
 	                         name,
 	                         context,
-	                         cly_show_create_config_list_cmd);
+	                         cly_show_build_config_list_cmd);
 }
 
 int
@@ -855,5 +916,5 @@ cly_show_make_oper_list_cmd(struct cly_dir *           directory,
 	                         node,
 	                         name,
 	                         context,
-	                         cly_show_create_oper_list_cmd);
+	                         cly_show_build_oper_list_cmd);
 }
