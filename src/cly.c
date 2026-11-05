@@ -388,11 +388,14 @@ cly_fini(struct cly_context * context)
 int
 main(int argc, const char * const argv[])
 {
-	cly_assert(argc == 1);
-	cly_assert(argv);
-
 	struct cly_context ctx;
 	int                ret;
+
+	if ((argc < 1) || (argc > 2)) {
+		cly_talk("invalid number of arguments");
+		ret = -EINVAL;
+		goto out;
+	}
 
 	cly_setup_sigs();
 
@@ -410,56 +413,46 @@ main(int argc, const char * const argv[])
 			goto fini_shell;
 
 		ctx.interact = true;
-
 		while (ret != -ESHUTDOWN) {
 			struct cly_expr_blk eblk = CLY_EXPR_BLK_INIT(eblk);
 
 			ret = cly_shell_read_expr(&eblk);
 			cly_assert(ret <= 0);
-			switch (ret) {
-			case 0:
+			if (!ret) {
 				/* General expression syntax ok. */
 				ret = cly_parse_expr_blk(&ctx, &eblk);
 				if (!ret)
 					ret = cly_exec_workq(&ctx);
-				break;
-
-			case -ESHUTDOWN:
-				/* Shell shutdown requested. */
-				break;
-
-			case -ENODATA:
-				/* Empty input. */
-			case -EINVAL:
-				/* Invalid expression argument character. */
-			case -ENAMETOOLONG:
-				/* Expression argument too long. */
-			case -ENOBUFS:
-				/* Too many expressions within block. */
-			default:
-				/* Other input line fetching / parsing error. */
-				break;
 			}
 
 			/* Release expression block resources. */
 			cly_expr_blk_fini(&eblk);
 		}
-		if (ret == -ESHUTDOWN)
-			ret = 0;
 
 fini_shell:
 		cly_shell_fini();
 	}
-	else {
+	else /* if (argc == 2) */ {
+		struct cly_expr_blk eblk = CLY_EXPR_BLK_INIT(eblk);
+
 		if (cly_terminated)
 			goto fini;
 
-		ret = cly_parse(&ctx, argc - 1, &argv[1]);
-		if (ret || cly_terminated)
-			goto fini;
+		ret = cly_expr_blk_parse_line(&eblk, cly_strdup(argv[1]));
+		cly_assert(ret <= 0);
+		if (!ret) {
+			/* General expression syntax ok. */
+			ret = cly_parse_expr_blk(&ctx, &eblk);
+			if (!ret)
+				ret = cly_exec_workq(&ctx);
+		}
 
-		ret = cly_exec_workq(&ctx);
+		/* Release expression block resources. */
+		cly_expr_blk_fini(&eblk);
 	}
+
+	if (ret == -ESHUTDOWN)
+		ret = 0;
 
 fini:
 	cly_fini(&ctx);
