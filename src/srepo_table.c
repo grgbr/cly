@@ -331,9 +331,9 @@ struct cly_srepo_table_array {
 	cly_assert((_array)->items)
 
 #define cly_srepo_table_array_foreach(_array, _cnt, _node) \
-	for (_cnt = 0, _node = (_array)->items[_cnt]; \
-	     _cnt < (_array)->cnt; \
-	     _cnt++, _node = (_array)->items[_cnt])
+	for (_cnt = 0; \
+	     (_cnt < (_array)->cnt) && (_node = (_array)->items[_cnt], true); \
+	     _cnt++)
 
 static unsigned int
 cly_srepo_table_array_count(const struct cly_srepo_table_array * array)
