@@ -564,7 +564,7 @@ free:
 }
 
 static bool
-cly_show_filter_oper_node(const struct lysc_node * node)
+cly_show_filter_oper_leaf(const struct lysc_node * node)
 {
 	cly_assert(node);
 	cly_assert(srepo_sch_node_type(node) == LYS_LEAF);
@@ -643,7 +643,7 @@ cly_show_build_oper_cmd(struct cly_show_cmd **     command,
 	tbl = cly_malloc(sizeof(*tbl));
 	err = cly_srepo_table_init(tbl,
 	                           (const struct lysc_node_container *)node,
-	                           cly_show_filter_oper_node,
+	                           cly_show_filter_oper_leaf,
 	                           cly_has_colors(context),
 	                           cly_get_style(context));
 	if (err) {
@@ -834,6 +834,20 @@ free:
 	return err;
 }
 
+static bool
+cly_show_filter_oper_list_leaf(const struct lysc_node * node)
+{
+	cly_assert(node);
+	cly_assert(srepo_sch_node_type(node) == LYS_LEAF);
+
+	if (srepo_sch_status_flags(node) &
+	    (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC))
+		return false;
+
+	return (srepo_sch_conf_flags(node) == LYS_CONFIG_R) ||
+	       srepo_sch_is_key(node);
+}
+
 static int
 cly_show_build_oper_list_cmd(struct cly_show_cmd **     command,
                              struct cly_dir *           directory,
@@ -860,7 +874,7 @@ cly_show_build_oper_list_cmd(struct cly_show_cmd **     command,
 	tbl = cly_malloc(sizeof(*tbl));
 	err = cly_srepo_table_init_list(tbl,
 	                                node,
-	                                cly_show_filter_oper_node,
+	                                cly_show_filter_oper_list_leaf,
 	                                cly_has_colors(context),
 	                                cly_get_style(context));
 	if (err) {
