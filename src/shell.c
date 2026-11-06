@@ -220,6 +220,8 @@ _cly_shell_set_prompt(struct cly_shell * shell, const char * prompt)
 
 	int ret __unused;
 
+/* TODO: understand how prompt expansion works (see rl_expand_prompt()). */
+
 	ret = cly_asprintf(&shell->prompt, "%s%s> ", shell->pref, prompt);
 	cly_assert(ret >= 4);
 }
@@ -299,7 +301,9 @@ cly_shell_fini_hist(struct cly_shell * shell)
 	if (err)
 		cly_warn("cannot save history: %s", strerror(err));
 
+#if defined(CONFIG_CLY_DEBUG)
 	cly_free(shell->hpath);
+#endif /* defined(CONFIG_CLY_DEBUG) */
 }
 
 static void
@@ -534,6 +538,8 @@ cly_shell_fini(void)
 	if (cly_the_shell.hpath)
 		cly_shell_fini_hist(&cly_the_shell);
 
+#if defined(CONFIG_CLY_DEBUG)
 	cly_free(cly_the_shell.pref);
 	cly_free(cly_the_shell.prompt);
+#endif /* defined(CONFIG_CLY_DEBUG) */
 }
