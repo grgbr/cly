@@ -1,0 +1,43 @@
+{
+   suppress-rl_initialize-reachable-memleak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:rl_initialize
+   fun:readline
+   ...
+}
+
+{
+   suppress-rl_set_prompt-reachable-memleak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:rl_set_prompt
+   fun:readline
+   fun:cly_shell_read_line
+   ...
+}
+
+{
+   suppress-rl_redisplay-reachable-memleak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:rl_redisplay
+   fun:readline_internal_setup
+   fun:readline
+   ...
+}
+
+{
+   suppress-read_history_range-reachable-memleak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:read_history_range
+   ...
+}
