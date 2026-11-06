@@ -522,8 +522,7 @@ cly_srepo_table_init_list(struct cly_srepo_table *   table,
 	if (err)
 		goto fini_arrays;
 
-	cnt = cly_srepo_table_array_count(&keys) +
-	      cly_srepo_table_array_count(&fields);
+	cnt = cly_srepo_table_array_count(&fields);
 	if (!cnt) {
 		err = -ENOENT;
 		goto fini_arrays;
@@ -532,6 +531,7 @@ cly_srepo_table_init_list(struct cly_srepo_table *   table,
 	cly_table_init(&table->super, color, false, &cly_srepo_table_list_ops);
 	clr = cly_style_get_color(style, CLY_LABEL_STYLE_KIND);
 
+	cnt += cly_srepo_table_array_count(&keys);
 	cly_srepo_table_array_foreach(&keys, c, node) {
 		err = cly_srepo_table_new_col(table,
 		                              node,
