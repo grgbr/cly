@@ -7,7 +7,8 @@
  ******************************************************************************/
 
 enum cly_change_type {
-	CLY_UPDATE_CHANGE_TYPE = 0,
+	CLY_XPATH_CHANGE_TYPE = 0,
+	CLY_UPDATE_CHANGE_TYPE,
 	CLY_DELETE_CHANGE_TYPE,
 	CLY_CHANGE_TYPE_NR
 };
@@ -222,7 +223,8 @@ cly_arg_parse_leaf_parm(const struct cly_arg * argument,
 	str = &str[len + 1];
 	len = strlen(str);
 	if (!len) {
-		if (srepo_sch_is_mandatory((const struct lysc_node *)
+		if (srepo_sch_is_key((const struct lysc_node *)parm->leaf) ||
+		    srepo_sch_is_mandatory((const struct lysc_node *)
 		                           parm->leaf)) {
 			cly_cmd_talk(command,
 			             "missing %s parameter value",
@@ -236,7 +238,8 @@ cly_arg_parse_leaf_parm(const struct cly_arg * argument,
 		                     NULL);
 	}
 	else if (!strcmp(str, "default")) {
-		if (!srepo_sch_leaf_dflt(parm->leaf)) {
+		if (srepo_sch_is_key((const struct lysc_node *)parm->leaf) ||
+		    !srepo_sch_leaf_dflt(parm->leaf)) {
 			cly_cmd_talk(command,
 			             "%s parameter has no default value",
 			             parm->super.name);
@@ -371,6 +374,110 @@ cly_arg_createn_add_leaf_parm(struct cly_arg_leaf_parm **   parameter,
 
 	return ret;
 }
+
+/******************************************************************************
+ * Yang list key parameter argument
+ ******************************************************************************/
+
+#include "arg.h"
+
+struct cly_arg_key {
+	struct cly_arg                super;
+	const struct lysc_node_leaf * leaf;
+};
+
+#define cly_arg_assert_key(_key) \
+	cly_assert(_key); \
+	cly_arg_assert(&(_key)->super); \
+	cly_assert((_key)->leaf); \
+	cly_assert(srepo_sch_is_key((const struct lysc_node *)parm->leaf))
+
+static int
+cly_arg_parse_key(const struct cly_arg * argument,
+                  const struct cly_cmd * command,
+                  const struct cly_dir * directory,
+                  struct cly_context *   context,
+                  int                    argc __unused,
+                  const char * const     argv[],
+                  void *                 data)
+{
+	cly_arg_assert_key((const struct cly_arg_key *)argument);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(argc == 1);
+	cly_assert(argv[0]);
+	cly_assert(strnlen(argv[0], CLY_ARG_MAX) < CLY_ARG_MAX);
+
+	const struct cly_arg_key * key = (const struct cly_arg_key *)argument;
+	const char *               str = argv[0];
+	size_t                     len;
+	struct cly_change_work *   wk = data;
+
+#warning Implement key value help and display it in case of error
+	len = strlen(str);
+	if (!len) {
+		/*
+		 * As stated into section 7.8.2 `The list's "key" Statement' of
+		 * RFC 7950, all key values MUST be present when specifying a
+		 * configuration list entry.
+		 * In addition, `default' and `mandatory' YANG statements are
+		 * ignored when specified within list key definitions.
+		 */
+		cly_cmd_talk(command,
+		             "missing %s key value",
+		             srepo_sch_node_name((const struct lysc_node *)
+		                                 key->leaf));
+			return -EINVAL;
+	}
+	else {
+		sr_error_t err;
+
+		err = srepo_sch_validate_value((const struct lysc_node *)
+		                               key->leaf,
+		                               str,
+		                               len,
+		                               NULL);
+		if (err != SR_ERR_OK) {
+			cly_cmd_talk(command,
+				"'%s': invalid %s key value",
+				str,
+				srepo_sch_node_name(
+					(const struct lysc_node *)key->leaf));
+			return -EINVAL;
+		}
+
+		cly_change_work_push(wk,
+		                     CLY_XPATH_CHANGE_TYPE,
+		                     (const struct lysc_node *)parm->leaf,
+		                     str);
+	}
+
+	return 1;
+}
+
+static void
+cly_arg_complete_key(const struct cly_arg * argument,
+                     const struct cly_cmd * command __unused,
+                     const struct cly_dir * directory __unused,
+                     struct cly_context *   context __unused,
+                     const char *           word,
+                     size_t                 length,
+                     int                    argc __unused,
+                     const char * const     argv[] __unused,
+                     struct cly_match *     matches)
+{
+	cly_arg_assert_key((const struct cly_arg_key *)argument);
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_match_assert(matches);
+
+#warning implement key value completion
+}
+
+
+FINISH ME!: implement CLY_XPATH_CHANGE_TYPE support in cly_change_work logic!
 
 /******************************************************************************
  * `set' command
