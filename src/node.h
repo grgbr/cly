@@ -29,12 +29,28 @@ struct cly_node {
 	cly_node_foreach_sibling_safe((_node)->child, _child, _tmp)
 
 static inline __cly_nonull(1)
-bool
-cly_node_has_child(const struct cly_node * node)
+struct cly_node *
+cly_node_child(const struct cly_node * node)
 {
 	cly_node_assert(node);
 
-	return !!node->child;
+	return node->child;
+}
+
+static inline __cly_nonull(1)
+bool
+cly_node_has_child(const struct cly_node * node)
+{
+	return !!cly_node_child(node);
+}
+
+static inline __cly_nonull(1)
+struct cly_node *
+cly_node_next_sibling(const struct cly_node * node)
+{
+	cly_node_assert(node);
+
+	return node->next;
 }
 
 #define CLY_CONT_WALK_RET (0)

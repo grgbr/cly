@@ -227,6 +227,7 @@ cly_arg_parse_choice(const struct cly_arg * choice,
                      void *                 data)
 {
 	cly_arg_assert(choice);
+	cly_assert(cly_node_has_child(&choice->super));
 	cly_cmd_assert(command);
 	cly_dir_assert(directory);
 	cly_assert_context(context);
@@ -251,7 +252,7 @@ cly_arg_parse_choice(const struct cly_arg * choice,
 			return ret;
 	}
 
-	cly_cmd_talk(command, "'%s': invalid argument.", argv[0]);
+	cly_cmd_talk(command, "'%s': invalid argument", argv[0]);
 
 	return -EINVAL;
 }
@@ -268,6 +269,7 @@ cly_arg_complete_choice(const struct cly_arg * choice,
                         struct cly_match *     matches)
 {
 	cly_arg_assert(choice);
+	cly_assert(cly_node_has_child(&choice->super));
 	cly_cmd_assert(command);
 	cly_dir_assert(directory);
 	cly_assert_context(context);
@@ -306,6 +308,79 @@ cly_arg_createn_add_choice(struct cly_node * cmd_or_arg)
 	struct cly_arg * choice;
 
 	choice = cly_arg_create_choice();
+	cly_assert(choice);
+	cly_node_add_child(cmd_or_arg, &choice->super);
+
+	return choice;
+}
+
+/******************************************************************************
+ * Group of choice(s) argument handling
+ ******************************************************************************/
+
+static int
+cly_arg_parse_choice_group(const struct cly_arg * choice_group,
+                           const struct cly_cmd * command,
+                           const struct cly_dir * directory,
+                           struct cly_context *   context,
+                           int                    argc,
+                           const char * const     argv[],
+                           void *                 data)
+{
+	cly_arg_assert(choice_group);
+	cly_assert(cly_node_has_child(&choice_group->super));
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(argc >= 1);
+	cly_assert(argv[0]);
+	cly_assert(strnlen(argv[0], CLY_ARG_MAX) < CLY_ARG_MAX);
+
+	int ret;
+	int cnt = 0;
+
+	do {
+		ret = cly_arg_parse_choice(choice_group,
+		                           command,
+		                           directory,
+		                           context,
+		                           1,
+		                           &argv[cnt],
+		                           data);
+		cly_assert(ret);
+		cly_assert(ret <= 1);
+		cly_assert((cnt + ret) <= argc);
+		if (ret < 0)
+			return ret;
+
+		cnt++;
+	} while (cnt < argc);
+
+	cly_assert(cnt);
+
+	return cnt;
+}
+
+static const struct cly_arg_ops cly_arg_choice_group_ops = {
+	.parse    = cly_arg_parse_choice_group,
+	.complete = cly_arg_complete_choice
+};
+
+struct cly_arg *
+cly_arg_create_choice_group(void)
+{
+	return cly_arg_create(sizeof(struct cly_arg),
+	                      &cly_arg_choice_group_ops);
+}
+
+struct cly_arg *
+cly_arg_createn_add_choice_group(struct cly_node * cmd_or_arg)
+{
+	cly_node_assert(cmd_or_arg);
+
+	struct cly_arg * choice;
+
+	choice = cly_arg_create_choice_group();
 	cly_assert(choice);
 	cly_node_add_child(cmd_or_arg, &choice->super);
 
@@ -436,7 +511,8 @@ cly_arg_parse_kword_parm(const struct cly_arg * argument,
 			return 1;
 	}
 
-	cly_cmd_talk(command, "'%s': invalid %s parameter keyword",
+	cly_cmd_talk(command,
+	             "'%s': invalid %s parameter keyword",
 	             str,
 	             parm->super.name);
 

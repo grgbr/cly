@@ -294,6 +294,17 @@ cly_build_handle_list(struct cly_build_stat *  state,
 		if (ret)
 			return srepo_sys_error(ret);
 
+		/*
+		 * Create and attach a set configuration command to the
+		 * directory just created.
+		 */
+		ret = cly_set_make_list_cmd(dir,
+		                            (const struct lysc_node *)list,
+		                            "set",
+		                            builder->ctx);
+		if (ret)
+			return srepo_sys_error(ret);
+
 		cly_build_push(builder, cly_build_process_list, dir);
 
 		return SREPO_CONT_WALK_RET;
@@ -571,6 +582,17 @@ cly_build_handle_toplist(struct cly_build_stat *       state __unused,
 			(const struct lysc_node *)list,
 			"status",
 			builder->ctx);
+		if (ret)
+			return srepo_sys_error(ret);
+
+		/*
+		 * Create and attach a set configuration command to the
+		 * directory just created.
+		 */
+		ret = cly_set_make_list_cmd(dir,
+		                            (const struct lysc_node *)list,
+		                            "set",
+		                            builder->ctx);
 		if (ret)
 			return srepo_sys_error(ret);
 

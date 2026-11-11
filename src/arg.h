@@ -198,6 +198,16 @@ extern struct cly_arg *
 cly_arg_createn_add_choice(struct cly_node * cmd_or_arg);
 
 /******************************************************************************
+ * Group of choice(s) argument handling
+ ******************************************************************************/
+
+extern struct cly_arg *
+cly_arg_create_choice_group(void);
+
+extern struct cly_arg *
+cly_arg_createn_add_choice_group(struct cly_node * cmd_or_arg);
+
+/******************************************************************************
  * Keyword parameter argument handling
  ******************************************************************************/
 

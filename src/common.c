@@ -159,3 +159,23 @@ cly_render_string(const char * input, char output[CLY_RENDER_MAX])
 
 	return output;
 }
+
+#if defined(CONFIG_CLY_DEBUG)
+
+bool
+cly_node_is_list_entry(const struct lysc_node * node)
+{
+	cly_assert(node);
+	cly_assert((srepo_sch_node_type(node) == LYS_LIST) ||
+	           (srepo_sch_node_type(node) == LYS_CONTAINER));
+
+	do {
+		if (srepo_sch_node_type(node) == LYS_LIST)
+			return true;
+		node = srepo_sch_node_parent(node);
+	} while (node);
+
+	return false;
+}
+
+#endif /* defined(CONFIG_CLY_DEBUG) */

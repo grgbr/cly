@@ -79,7 +79,7 @@ extern struct elog_stdio cly_logger;
 #define cly_scn_err(_node, _fmt, ...) \
 	cly_scn_log(_node, ELOG_ERR_SEVERITY, _fmt,  ## __VA_ARGS__)
 #define cly_scn_warn(_node, _fmt, ...) \
-	cly_scn_log(_node, ELOG_WARN_SEVERITY, _fmt, ## __VA_ARGS__)
+	cly_scn_log(_node, ELOG_WARNING_SEVERITY, _fmt, ## __VA_ARGS__)
 #define cly_scn_notice(_node, _fmt, ...) \
 	cly_scn_log(_node, ELOG_NOTICE_SEVERITY, _fmt, ## __VA_ARGS__)
 #define cly_scn_info(_node, _fmt, ...) \
@@ -90,7 +90,7 @@ extern struct elog_stdio cly_logger;
 #define cly_dtn_err(_node, _fmt, ...) \
 	cly_dtn_log(_node, ELOG_ERR_SEVERITY, _fmt,  ## __VA_ARGS__)
 #define cly_dtn_warn(_node, _fmt, ...) \
-	cly_dtn_log(_node, ELOG_WARN_SEVERITY, _fmt, ## __VA_ARGS__)
+	cly_dtn_log(_node, ELOG_WARNING_SEVERITY, _fmt, ## __VA_ARGS__)
 #define cly_dtn_notice(_node, _fmt, ...) \
 	cly_dtn_log(_node, ELOG_NOTICE_SEVERITY, _fmt, ## __VA_ARGS__)
 #define cly_dtn_info(_node, _fmt, ...) \
@@ -233,5 +233,16 @@ cly_filter_config_leaf(const struct lysc_node * node)
 	       !(srepo_sch_status_flags(node) &
 	         (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC));
 }
+
+#if defined(CONFIG_CLY_DEBUG)
+
+/*
+ * Ensure the schema node given in argument has at least one LYS_LIST parent
+ * node or is a list schema node itself.
+ */
+extern bool
+cly_node_is_list_entry(const struct lysc_node * node);
+
+#endif /* defined(CONFIG_CLY_DEBUG) */
 
 #endif /* _CLY_COMMON_H */
