@@ -1,8 +1,6 @@
 #ifndef _CLY_SET_H
 #define _CLY_SET_H
 
-#include "srepo_table.h"
-
 struct cly_dir;
 struct cly_context;
 

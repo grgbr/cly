@@ -1,50 +1,22 @@
 #include "set.h"
+#include "change.h"
 #include "cly.h"
-#include <srutils/srepo/data.h>
 
 /******************************************************************************
  * Change work
  ******************************************************************************/
 
-enum cly_change_type {
-	CLY_XPATH_CHANGE_TYPE = 0,
-	CLY_UPDATE_CHANGE_TYPE,
-	CLY_DELETE_CHANGE_TYPE,
-	CLY_CHANGE_TYPE_NR
-};
-
-#define cly_change_assert_type(_type) \
-	cly_assert(_type >= 0); \
-	cly_assert(_type < CLY_CHANGE_TYPE_NR)
-
-struct cly_change {
-	enum cly_change_type     type;
-	const struct lysc_node * scn;
-	const char *             val;
-};
-
-#define cly_change_assert(_chg) \
-	cly_assert(_chg); \
-	cly_assert((_chg)->scn); \
-	cly_change_assert_type((_chg)->type); \
-	cly_assert(((_chg)->type == CLY_DELETE_CHANGE_TYPE) || (_chg)->val)
-
 struct cly_change_work {
-	struct cly_work        super;
-	const struct cly_cmd * cmd;
-	unsigned int           cnt;
-	unsigned int           nr;
-	struct cly_change      changes[];
+	struct cly_work           super;
+	const struct cly_cmd *    cmd;
+	struct cly_change_batch * changes;
 };
-
-#define CLY_CHANGE_WORK_NR (128U)
 
 #define cly_change_assert_work(_wk) \
 	cly_assert(_wk); \
 	cly_assert_work(&(_wk)->super); \
 	cly_cmd_assert((_wk)->cmd); \
-	cly_assert((_wk)->nr <= CLY_CHANGE_WORK_NR); \
-	cly_assert((_wk)->cnt <= (_wk)->nr)
+	cly_change_assert_batch((_wk)->_batch)
 
 static int
 cly_change_exec_work(struct cly_work * work, struct cly_context * context)
@@ -448,7 +420,7 @@ cly_arg_parse_key(const struct cly_arg * argument,
 		}
 
 		cly_change_work_push(wk,
-		                     CLY_XPATH_CHANGE_TYPE,
+		                     CLY_KEY_CHANGE_TYPE,
 		                     (const struct lysc_node *)parm->leaf,
 		                     str);
 	}
@@ -476,21 +448,61 @@ cly_arg_complete_key(const struct cly_arg * argument,
 #warning implement key value completion
 }
 
+#if 0
+FINISH ME!: implement CLY_KEY_CHANGE_TYPE support in cly_change_work logic!
+static inline bool
+cly_change_filter_keyed_leaf(const struct lysc_node * node)
+{
+	cly_assert(node);
+	cly_assert(srepo_sch_node_type(node) == LYS_LEAF);
 
-FINISH ME!: implement CLY_XPATH_CHANGE_TYPE support in cly_change_work logic!
+	if (srepo_sch_status_flags(node) &
+	    (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC))
+		return false;
+
+	return (srepo_sch_conf_flags(node) == LYS_CONFIG_W) ||
+	       srepo_sch_is_key(node);
+}
+
+static void
+cly_change_path_init_from_keyed_node(struct cly_change_path * path,
+                                     const struct lysc_node * node)
+{
+	cly_assert(path);
+	cly_assert(node);
+
+	cly_change_path_init(path);
+
+	do {
+		cly_assert(cly_filter_config_leaf(node));
+
+		if (!(srepo_sch_node_type(node) &
+		      (LYS_CHOICE | LYS_CASE | LYS_INPUT | LYS_OUTPUT)))
+			/* Skip schema only nodes. */
+			cly_change_path_push(path, node);
+		node = srepo_sch_node_parent(node);
+	} while (node);
+
+	cly_change_invert_path(path);
+}
+FINISH ME!: implement CLY_KEY_CHANGE_TYPE support in cly_change_work logic!
+#endif
+
 
 /******************************************************************************
  * `set' command
  ******************************************************************************/
 
 struct cly_set_cmd {
-	struct cly_cmd super;
-	unsigned int   max_chg;
+	struct cly_cmd         super;
+	struct cly_change_path path;
+	unsigned int           max_chg;
 };
 
 #define cly_set_assert_cmd(_cmd) \
 	cly_assert(_cmd); \
 	cly_cmd_assert(&(_cmd)->super); \
+	cly_change_path_assert(&(_cmd)->path); \
 	cly_assert((_cmd)->max_chg)
 
 static int
@@ -539,6 +551,7 @@ static const struct cly_cmd_ops cly_set_cmd_ops = {
 	.fini     = cly_cmd_null_fini
 };
 
+FINISH ME!!!
 static int
 cly_set_create_cmd(struct cly_set_cmd **      command,
                    struct cly_dir *           directory,
@@ -605,6 +618,7 @@ cly_set_create_cmd(struct cly_set_cmd **      command,
 		goto destroy;
 	}
 
+	cly_change_path_init_from_node(&cmd->path, node);
 	cmd->max_chg = cnt;
 
 	cly_dir_add_cmd(directory, (struct cly_cmd *)cmd);

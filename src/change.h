@@ -3,6 +3,58 @@
 
 #include "common.h"
 
+struct cly_cmd;
+struct lysc_node;
+
+/******************************************************************************
+ * Change (x)path handling.
+ ******************************************************************************/
+
+#define CLY_CHANGE_PATH_MAX \
+	((SREPO_XPATH_SIZE - 1) / 2U)
+
+struct cly_change_path {
+	unsigned int              cnt;
+	unsigned int              nr;
+	const struct lysc_node ** nodes;
+};
+
+#define cly_change_path_assert(_path) \
+	cly_assert(_path); \
+	cly_assert((_path)->nr <= CLY_CHANGE_PATH_MAX); \
+	cly_assert((_path)->cnt <= (_path)->nr); \
+	cly_assert((_path)->nodes)
+
+#define cly_change_path_foreach(_path, _cnt, _atom) \
+	for (_cnt = 0; \
+	     (_cnt < (_path)->cnt) && (_atom = (_path)->nodes[_cnt], true); \
+	     _cnt++)
+
+static inline
+unsigned int
+cly_change_path_count(const struct cly_change_path * path)
+{
+	cly_change_path_assert(path);
+
+	return path->cnt;
+}
+
+extern void
+cly_change_path_init_from_node(struct cly_change_path * path,
+                               const struct lysc_node * node);
+
+static inline void
+cly_change_path_fini(struct cly_change_path * path)
+{
+	cly_change_path_assert(path);
+
+	cly_free(path->nodes);
+}
+
+/******************************************************************************
+ * Batch of changes handling.
+ ******************************************************************************/
+
 enum cly_change_type {
 	CLY_KEY_CHANGE_TYPE    = 0,
 	CLY_UPDATE_CHANGE_TYPE,
@@ -56,10 +108,16 @@ cly_change_push_batch(struct cly_change_batch * batch,
                       const char *              value);
 
 extern int
-cly_change_exec_batch(struct cly_change_batch * batch,
-                      const struct lysc_node *  node,
-                      sr_session_ctx_t *        session,
-                      const struct cly_cmd *    command);
+cly_change_exec_batch(const struct cly_change_batch * batch,
+                      sr_session_ctx_t *              session,
+                      const struct lysc_node *        node,
+                      const struct cly_cmd *          command);
+
+extern int
+cly_change_exec_list_batch(const struct cly_change_batch * batch,
+                           sr_session_ctx_t *              session,
+                           const struct cly_change_path *  path,
+                           const struct cly_cmd *          command);
 
 extern struct cly_change_batch *
 cly_change_create_batch(unsigned int nr);
