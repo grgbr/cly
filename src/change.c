@@ -81,7 +81,9 @@ cly_change_path_init_from_node(struct cly_change_path * path,
 	cly_change_path_init(path);
 
 	do {
-		cly_assert(cly_filter_config_leaf(node));
+		cly_assert(srepo_sch_conf_flags(node) == LYS_CONFIG_W);
+		cly_assert(!(srepo_sch_status_flags(node) &
+		             (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC)));
 
 		if (!(srepo_sch_node_type(node) &
 		      (LYS_CHOICE | LYS_CASE | LYS_INPUT | LYS_OUTPUT)))
@@ -149,7 +151,7 @@ cly_change_exec(const struct cly_change * change,
 	cly_assert(len);
 	cly_assert(len < SREPO_XPATH_NODE_SIZE);
 	if ((length + 1 + len) >= SREPO_XPATH_SIZE) {
-		msg = "invalid node path";
+		msg = "invalid change path";
 		goto err;
 	}
 
@@ -195,7 +197,8 @@ err:
 int
 cly_change_exec_batch(const struct cly_change_batch * batch,
                       sr_session_ctx_t *              session,
-                      const struct lysc_node *        node,
+                      char *                          path,
+                      size_t                          length,
                       const struct cly_cmd *          command)
 {
 	cly_change_assert_batch(batch);
@@ -203,26 +206,19 @@ cly_change_exec_batch(const struct cly_change_batch * batch,
 	cly_assert(session);
 	cly_assert((srepo_session_dstore(session) == SR_DS_RUNNING) ||
 	           (srepo_session_dstore(session) == SR_DS_CANDIDATE));
-	cly_assert(node);
-	cly_assert(srepo_sch_node_type(node) == LYS_CONTAINER);
+	cly_assert(path);
+	cly_assert(length);
+	cly_assert(length < SREPO_XPATH_SIZE);
 	cly_cmd_assert(command);
 
-	char *       path;
-	size_t       len;
 	unsigned int c;
 	sr_error_t   err;
-
-	path = srepo_sch_node_path(node);
-	cly_assert(path);
-	len = strnlen(path, SREPO_XPATH_SIZE);
-	cly_assert(len);
-	cly_assert(len < SREPO_XPATH_SIZE);
 
 	for (c = 0; c < batch->cnt; c++) {
 		err = cly_change_exec(&batch->changes[c],
 		                      session,
 		                      path,
-		                      len,
+		                      length,
 		                      command);
 		if (err != SR_ERR_OK)
 			goto discard;
@@ -236,13 +232,10 @@ cly_change_exec_batch(const struct cly_change_batch * batch,
 		goto discard;
 	}
 
-	srepo_free(path);
-
 	return 0;
 
 discard:
 	srepo_discard_changes(session);
-	srepo_free(path);
 
 	return -EPERM;
 }

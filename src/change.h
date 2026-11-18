@@ -25,9 +25,9 @@ struct cly_change_path {
 	cly_assert((_path)->cnt <= (_path)->nr); \
 	cly_assert((_path)->nodes)
 
-#define cly_change_path_foreach(_path, _cnt, _atom) \
+#define cly_change_path_foreach(_path, _cnt, _node) \
 	for (_cnt = 0; \
-	     (_cnt < (_path)->cnt) && (_atom = (_path)->nodes[_cnt], true); \
+	     (_cnt < (_path)->cnt) && (_node = (_path)->nodes[_cnt], true); \
 	     _cnt++)
 
 static inline
@@ -110,7 +110,8 @@ cly_change_push_batch(struct cly_change_batch * batch,
 extern int
 cly_change_exec_batch(const struct cly_change_batch * batch,
                       sr_session_ctx_t *              session,
-                      const struct lysc_node *        node,
+                      char *                          path,
+                      size_t                          length,
                       const struct cly_cmd *          command);
 
 extern int
