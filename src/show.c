@@ -711,7 +711,7 @@ cly_show_make_cmd(struct cly_dir *           directory,
 
 		cly_scn_debug(node,
 		              "'%s' show command creation ignored: "
-		              "no child schema data node found",
+		              "no schema parameter found",
 		              name);
 	}
 

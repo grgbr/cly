@@ -2,6 +2,15 @@
 #include "change.h"
 #include "cly.h"
 
+/*
+ * Make sure that CLY_CHANGE_BATCH_NR may be encoded using a positive signed
+ * integer so that cly_set_createn_add_keys() and cly_set_createn_add_parm() may
+ * return a consistent number of possible changes.
+ */
+#if CLY_CHANGE_BATCH_NR > INT_MAX
+#error Maximum number of changes too large !
+#endif
+
 struct cly_set_cmd {
 	struct cly_cmd super;
 	char *         path;
@@ -14,8 +23,7 @@ struct cly_set_cmd {
 	cly_cmd_assert(&(_cmd)->super); \
 	cly_assert((_cmd)->path); \
 	cly_assert((_cmd)->len); \
-	cly_assert((_cmd)->len < SREPO_XPATH_SIZE); \
-	cly_assert((_cmd)->max_chg)
+	cly_assert((_cmd)->len < SREPO_XPATH_SIZE)
 
 /******************************************************************************
  * Set commands work
@@ -291,6 +299,8 @@ cly_set_exec_work(struct cly_work * work, struct cly_context * context)
 	cly_set_assert_work((const struct cly_set_work *)work);
 	cly_set_assert_cmd((const struct cly_set_cmd *)
 	                   ((const struct cly_set_work *)work)->cmd);
+	cly_assert(((const struct cly_set_cmd *)
+	            ((const struct cly_set_work *)work)->cmd)->max_chg);
 	cly_assert_context(context);
 
 	sr_session_ctx_t *          sess = *cly_cand_session(context);
@@ -351,6 +361,7 @@ cly_set_parse_cmd(const struct cly_cmd * command,
                   const char * const     argv[])
 {
 	cly_set_assert_cmd((const struct cly_set_cmd *)command);
+	cly_assert(((const struct cly_set_cmd *)command)->max_chg);
 	cly_dir_assert(directory);
 	cly_assert_context(context);
 	cly_assert(argv);
@@ -388,13 +399,15 @@ static const struct cly_cmd_ops cly_set_cmd_ops = {
 static int
 cly_set_createn_add_parm(struct cly_cmd *         command,
                          const struct lysc_node * node,
+                         unsigned int             max_changes,
                          cly_filter_node_fn *     filter)
 {
+	cly_cmd_assert(command);
 	cly_assert(node);
 	cly_assert((srepo_sch_node_type(node) == LYS_CONTAINER) ||
 	           (srepo_sch_node_type(node) == LYS_LIST));
 	cly_assert(filter);
-	cly_cmd_assert(command);
+	cly_assert(max_changes <= CLY_CHANGE_BATCH_NR);
 
 	struct cly_arg *         choice;
 	const struct lysc_node * scn;
@@ -408,6 +421,12 @@ cly_set_createn_add_parm(struct cly_cmd *         command,
 		if ((srepo_sch_node_type(scn) == LYS_LEAF) && filter(scn)) {
 			struct cly_arg_leaf_parm * parm;
 
+			cly_assert(cnt <= max_changes);
+			if (cnt == max_changes) {
+				ret = -EOVERFLOW;
+				goto err;
+			}
+
 			ret = cly_arg_createn_add_leaf_parm(
 				&parm,
 				(const struct lysc_node_leaf *)scn,
@@ -419,13 +438,11 @@ cly_set_createn_add_parm(struct cly_cmd *         command,
 		}
 	}
 
-	if (cnt) {
-		cly_assert(cnt <= (unsigned int)INT_MAX);
+	if (cnt)
 		return cnt;
-	}
 
 	cly_scn_err(node,
-	            "cannot create set command '%s': no schema parameter found"
+	            "cannot create set command '%s': no schema parameter found",
 	            command->name);
 
 	return -ENOENT;
@@ -485,6 +502,7 @@ cly_set_create_cmd(struct cly_set_cmd **      command,
 
 	ret = cly_set_createn_add_parm((struct cly_cmd *)cmd,
 	                               node,
+	                               CLY_CHANGE_BATCH_NR,
 	                               filter);
 	cly_assert(ret);
 	if (ret < 0)
@@ -499,7 +517,7 @@ cly_set_create_cmd(struct cly_set_cmd **      command,
 destroy:
 	cly_cmd_destroy((struct cly_cmd *)cmd);
 
-	return ret;
+	return (ret == -ENOENT) ? 0 : ret;
 }
 
 int
@@ -543,15 +561,8 @@ err:
 	return err;
 }
 
-#if 0
-/******************************************************************************/
-/******************************************************************************/
-/******************************************************************************/
-/******************************************************************************/
-/******************************************************************************/
-
 /******************************************************************************
- * Yang list key parameter argument
+ * Yang list key argument
  ******************************************************************************/
 
 #include "arg.h"
@@ -565,7 +576,7 @@ struct cly_arg_key {
 	cly_assert(_key); \
 	cly_arg_assert(&(_key)->super); \
 	cly_assert((_key)->leaf); \
-	cly_assert(srepo_sch_is_key((const struct lysc_node *)parm->leaf))
+	cly_assert(srepo_sch_is_key((const struct lysc_node *)((_key)->leaf)))
 
 static int
 cly_arg_parse_key(const struct cly_arg * argument,
@@ -587,7 +598,7 @@ cly_arg_parse_key(const struct cly_arg * argument,
 	const struct cly_arg_key * key = (const struct cly_arg_key *)argument;
 	const char *               str = argv[0];
 	size_t                     len;
-	struct cly_set_work *   wk = data;
+	struct cly_set_work *      wk = data;
 
 #warning Implement key value help and display it in case of error
 	len = strlen(str);
@@ -624,7 +635,7 @@ cly_arg_parse_key(const struct cly_arg * argument,
 
 		cly_set_work_push(wk,
 		                  CLY_KEY_CHANGE_TYPE,
-		                  (const struct lysc_node *)parm->leaf,
+		                  (const struct lysc_node *)key->leaf,
 		                  str);
 	}
 
@@ -636,8 +647,8 @@ cly_arg_complete_key(const struct cly_arg * argument,
                      const struct cly_cmd * command __unused,
                      const struct cly_dir * directory __unused,
                      struct cly_context *   context __unused,
-                     const char *           word,
-                     size_t                 length,
+                     const char *           word __unused,
+                     size_t                 length __unused,
                      int                    argc __unused,
                      const char * const     argv[] __unused,
                      struct cly_match *     matches)
@@ -651,52 +662,41 @@ cly_arg_complete_key(const struct cly_arg * argument,
 #warning implement key value completion
 }
 
-#if 0
-FINISH ME!: implement CLY_KEY_CHANGE_TYPE support in cly_set_work logic!
-static inline bool
-cly_change_filter_keyed_leaf(const struct lysc_node * node)
+static const struct cly_arg_ops cly_arg_key_ops = {
+	.parse    = cly_arg_parse_key,
+	.complete = cly_arg_complete_key
+};
+
+static void
+cly_arg_create_key(struct cly_arg_key **         argument,
+                   const struct lysc_node_leaf * leaf)
 {
-	cly_assert(node);
-	cly_assert(srepo_sch_node_type(node) == LYS_LEAF);
+	cly_assert(argument);
+	cly_assert(leaf);
 
-	if (srepo_sch_status_flags(node) &
-	    (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC))
-		return false;
+	struct cly_arg_key * arg;
 
-	return (srepo_sch_conf_flags(node) == LYS_CONFIG_W) ||
-	       srepo_sch_is_key(node);
+	arg = (struct cly_arg_key *)
+	      cly_arg_create(sizeof(*arg), &cly_arg_key_ops);
+	cly_assert(arg);
+
+	arg->leaf = leaf;
+
+	*argument = arg;
 }
 
 static void
-cly_change_path_init_from_keyed_node(struct cly_change_path * path,
-                                     const struct lysc_node * node)
+cly_arg_createn_add_key(struct cly_arg_key **         argument,
+                        const struct lysc_node_leaf * leaf,
+                        struct cly_node *             cmd_or_arg)
 {
-	cly_assert(path);
-	cly_assert(node);
+	cly_assert(argument);
+	cly_assert(leaf);
+	cly_node_assert(cmd_or_arg);
 
-	cly_change_path_init(path);
-
-	do {
-		cly_assert(cly_filter_config_leaf(node));
-
-		if (!(srepo_sch_node_type(node) &
-		      (LYS_CHOICE | LYS_CASE | LYS_INPUT | LYS_OUTPUT)))
-			/* Skip schema only nodes. */
-			cly_change_path_push(path, node);
-		node = srepo_sch_node_parent(node);
-	} while (node);
-
-	cly_change_invert_path(path);
+	cly_arg_create_key(argument, leaf);
+	cly_node_add_child(cmd_or_arg, *(struct cly_node **)argument);
 }
-FINISH ME!: implement CLY_KEY_CHANGE_TYPE support in cly_set_work logic!
-#endif
-
-#endif
-
-/******************************************************************************/
-/******************************************************************************/
-/******************************************************************************/
-/******************************************************************************/
 
 /******************************************************************************
  * List `set' command
@@ -807,15 +807,15 @@ cly_set_filter_key_leaf(const struct lysc_node * node)
 }
 
 static int
-cly_set_createn_add_key(struct cly_cmd *         command,
-                        struct cly_change_path * path,
-                        const struct lysc_node * node)
+cly_set_createn_add_keys(struct cly_cmd *         command,
+                         struct cly_change_path * path,
+                         const struct lysc_node * node)
 {
 	cly_cmd_assert(command);
 	cly_assert(path);
 	cly_assert(node);
-	cly_assert((srepo_sch_node_type(list) == LYS_LIST) ||
-	           (srepo_sch_node_type(list) == LYS_CONTAINER));
+	cly_assert((srepo_sch_node_type(node) == LYS_LIST) ||
+	           (srepo_sch_node_type(node) == LYS_CONTAINER));
 
 	const struct lysc_node * list;
 	unsigned int             n;
@@ -831,12 +831,16 @@ cly_set_createn_add_key(struct cly_cmd *         command,
 				if (cly_set_filter_key_leaf(leaf)) {
 					struct cly_arg_key * key;
 
-					ret = cly_arg_createn_add_key(
-						&key,
-						leaf,
-						(struct cly_node *)command);
-					if (ret)
+					cly_assert(cnt <= CLY_CHANGE_BATCH_NR);
+					if (cnt == CLY_CHANGE_BATCH_NR) {
+						ret = -EOVERFLOW;
 						goto err;
+					}
+
+					cly_arg_createn_add_key(
+						&key,
+						(struct lysc_node_leaf *)leaf,
+						(struct cly_node *)command);
 
 					cnt++;
 				}
@@ -845,14 +849,12 @@ cly_set_createn_add_key(struct cly_cmd *         command,
 	}
 	cly_assert(n);
 
-	if (cnt) {
-		cly_assert(cnt <= (unsigned int)INT_MAX);
+	if (cnt)
 		return (int)cnt;
-	}
 
 	cly_scn_err(node,
 	            "cannot create set command '%s': "
-	            "no schema key argument found"
+	            "no schema key argument found",
 	            command->name);
 
 	return -ENOENT;
@@ -869,7 +871,7 @@ err:
 }
 
 static int
-cly_set_create_list_cmd(struct cly_set_cmd **      command,
+cly_set_create_list_cmd(struct cly_set_list_cmd ** command,
                         struct cly_dir *           directory,
                         const struct lysc_node *   node,
                         const char *               name,
@@ -886,7 +888,6 @@ cly_set_create_list_cmd(struct cly_set_cmd **      command,
 	cly_assert_context(context);
 
 	struct cly_set_list_cmd * cmd;
-	const struct lysc_node *  scn;
 	int                       ret;
 
 	/*
@@ -898,24 +899,20 @@ cly_set_create_list_cmd(struct cly_set_cmd **      command,
 	                     name,
 	                     &cly_set_cmd_list_ops);
 
-	ret = cly_set_createn_add_key((struct cly_cmd *)cmd,
-	                              &cmd->path,
-	                              node);
+	ret = cly_set_createn_add_keys((struct cly_cmd *)cmd,
+	                               &cmd->path,
+	                               node);
 	cly_assert(ret);
 	if (ret < 0)
 		goto destroy;
 
-	finish me !! Check that cmd->max_chg <= CLY_CHANGE_BATCH_NR !!
-	cmd->max_chg = (unsigned int)ret;
-
 	ret = cly_set_createn_add_parm((struct cly_cmd *)cmd,
 	                               node,
+	                               CLY_CHANGE_BATCH_NR - (unsigned int)ret,
 	                               filter);
 	cly_assert(ret);
 	if (ret < 0)
 		goto destroy;
-
-	finish me !! Check that cmd->max_chg + ret does not wrap and <= CLY_CHANGE_BATCH_NR !!
 
 	cmd->max_chg += (unsigned int)ret;
 	cly_dir_add_cmd(directory, (struct cly_cmd *)cmd);
@@ -926,5 +923,47 @@ cly_set_create_list_cmd(struct cly_set_cmd **      command,
 destroy:
 	cly_cmd_destroy((struct cly_cmd *)cmd);
 
-	return ret;
+	return (ret == -ENOENT) ? 0 : ret;
+}
+
+int
+cly_set_make_list_cmd(struct cly_dir *           directory,
+                      const struct lysc_node *   node,
+                      const char *               name,
+                      const struct cly_context * context)
+{
+	cly_dir_assert(directory);
+	cly_assert(node);
+	cly_assert((srepo_sch_node_type(node) == LYS_CONTAINER) ||
+	           (srepo_sch_node_type(node) == LYS_LIST));
+	cly_assert(name);
+	cly_assert_context(context);
+
+	struct cly_set_list_cmd * cmd;
+	const char *              msg;
+	int                       err;
+
+	if (!cly_cmd_name_isok(name)) {
+		msg = "invalid name";
+		err = -EINVAL;
+		goto err;
+	}
+
+	if (cly_dir_find_cmd(directory, name)) {
+		msg = "already exists";
+		err = -EEXIST;
+		goto err;
+	}
+
+	return cly_set_create_list_cmd(&cmd,
+	                               directory,
+	                               node,
+	                               name,
+	                               cly_filter_config_leaf,
+	                               context);
+
+err:
+	cly_scn_err(node, "cannot create set command '%s': %s", name, msg);
+
+	return err;
 }
