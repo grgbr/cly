@@ -441,10 +441,6 @@ cly_set_createn_add_parm(struct cly_cmd *         command,
 	if (cnt)
 		return cnt;
 
-	cly_scn_err(node,
-	            "cannot create set command '%s': no schema parameter found",
-	            command->name);
-
 	return -ENOENT;
 
 err:
@@ -505,8 +501,13 @@ cly_set_create_cmd(struct cly_set_cmd **      command,
 	                               CLY_CHANGE_BATCH_NR,
 	                               filter);
 	cly_assert(ret);
-	if (ret < 0)
+	if (ret < 0) {
+		cly_scn_debug(node,
+		              "'%s' set command creation ignored: "
+		              "no schema parameter found",
+		              name);
 		goto destroy;
+	}
 
 	cmd->max_chg = (unsigned int)ret;
 	cly_dir_add_cmd(directory, (struct cly_cmd *)cmd);
@@ -529,12 +530,17 @@ cly_set_make_cmd(struct cly_dir *           directory,
 	cly_dir_assert(directory);
 	cly_assert(container);
 	cly_assert(srepo_sch_node_type(container) == LYS_CONTAINER);
+	cly_assert(!(srepo_sch_status_flags(container) &
+	             (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC)));
 	cly_assert(name);
 	cly_assert_context(context);
 
 	struct cly_set_cmd * cmd;
 	const char *         msg;
 	int                  err;
+
+	if (srepo_sch_conf_flags(container) != LYS_CONFIG_W)
+		return 0;
 
 	if (!cly_cmd_name_isok(name)) {
 		msg = "invalid name";
@@ -591,7 +597,7 @@ cly_arg_parse_key(const struct cly_arg * argument,
 	cly_cmd_assert(command);
 	cly_dir_assert(directory);
 	cly_assert_context(context);
-	cly_assert(argc == 1);
+	cly_assert(argc >= 1);
 	cly_assert(argv[0]);
 	cly_assert(strnlen(argv[0], CLY_ARG_MAX) < CLY_ARG_MAX);
 
@@ -711,8 +717,7 @@ struct cly_set_list_cmd {
 #define cly_set_assert_list_cmd(_cmd) \
 	cly_assert(_cmd); \
 	cly_cmd_assert(&(_cmd)->super); \
-	cly_change_path_assert(&(_cmd)->path); \
-	cly_assert((_cmd)->max_chg)
+	cly_change_path_assert(&(_cmd)->path)
 
 static int
 cly_set_exec_list_work(struct cly_work * work, struct cly_context * context)
@@ -720,6 +725,8 @@ cly_set_exec_list_work(struct cly_work * work, struct cly_context * context)
 	cly_set_assert_work((const struct cly_set_work *)work);
 	cly_set_assert_list_cmd((const struct cly_set_list_cmd *)
 	                        ((const struct cly_set_work *)work)->cmd);
+	cly_assert(((const struct cly_set_list_cmd *)
+	            ((const struct cly_set_work *)work)->cmd)->max_chg);
 	cly_assert_context(context);
 
 	sr_session_ctx_t *              sess = *cly_cand_session(context);
@@ -751,6 +758,7 @@ cly_set_parse_list_cmd(const struct cly_cmd * command,
                        const char * const     argv[])
 {
 	cly_set_assert_list_cmd((const struct cly_set_list_cmd *)command);
+	cly_assert(((const struct cly_set_list_cmd *)command)->max_chg);
 	cly_dir_assert(directory);
 	cly_assert_context(context);
 	cly_assert(argv);
@@ -758,10 +766,10 @@ cly_set_parse_list_cmd(const struct cly_cmd * command,
 	struct cly_set_work * wk;
 
 	/* Cannot fail. */
-	wk = (struct cly_set_work *)
-	     cly_set_create_work(&cly_set_work_list_ops,
-	                         ((const struct cly_set_cmd *)command)->max_chg,
-	                         command);
+	wk = (struct cly_set_work *)cly_set_create_work(
+		&cly_set_work_list_ops,
+		((const struct cly_set_list_cmd *)command)->max_chg,
+		command);
 
 	return cly_set_parsen_sched_work(command,
 	                                 directory,
@@ -852,11 +860,6 @@ cly_set_createn_add_keys(struct cly_cmd *         command,
 	if (cnt)
 		return (int)cnt;
 
-	cly_scn_err(node,
-	            "cannot create set command '%s': "
-	            "no schema key argument found",
-	            command->name);
-
 	return -ENOENT;
 
 err:
@@ -903,18 +906,29 @@ cly_set_create_list_cmd(struct cly_set_list_cmd ** command,
 	                               &cmd->path,
 	                               node);
 	cly_assert(ret);
-	if (ret < 0)
+	if (ret < 0) {
+		cly_scn_debug(node,
+		              "'%s' list set command creation ignored: "
+		              "no schema key argument found",
+		              name);
 		goto destroy;
+	}
+
 
 	ret = cly_set_createn_add_parm((struct cly_cmd *)cmd,
 	                               node,
 	                               CLY_CHANGE_BATCH_NR - (unsigned int)ret,
 	                               filter);
 	cly_assert(ret);
-	if (ret < 0)
+	if (ret < 0) {
+		cly_scn_debug(node,
+		              "'%s' list set command creation ignored: "
+		              "no schema parameter found",
+		              name);
 		goto destroy;
+	}
 
-	cmd->max_chg += (unsigned int)ret;
+	cmd->max_chg = (unsigned int)ret;
 	cly_dir_add_cmd(directory, (struct cly_cmd *)cmd);
 	*command = cmd;
 
@@ -934,14 +948,18 @@ cly_set_make_list_cmd(struct cly_dir *           directory,
 {
 	cly_dir_assert(directory);
 	cly_assert(node);
-	cly_assert((srepo_sch_node_type(node) == LYS_CONTAINER) ||
-	           (srepo_sch_node_type(node) == LYS_LIST));
+	cly_assert(cly_node_is_list_entry(node));
+	cly_assert(!(srepo_sch_status_flags(node) &
+	             (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC)));
 	cly_assert(name);
 	cly_assert_context(context);
 
 	struct cly_set_list_cmd * cmd;
 	const char *              msg;
 	int                       err;
+
+	if (srepo_sch_conf_flags(node) != LYS_CONFIG_W)
+		return 0;
 
 	if (!cly_cmd_name_isok(name)) {
 		msg = "invalid name";

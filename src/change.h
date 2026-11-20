@@ -96,9 +96,9 @@ const struct cly_change *
 cly_change_peek_batch(const struct cly_change_batch * batch, unsigned int index)
 {
 	cly_change_assert_batch(batch);
-	cly_assert(index <= batch->cnt);
+	cly_assert(index < batch->nr);
 
-	return &batch->changes[index];
+	return (index < batch->cnt) ? &batch->changes[index] : NULL;
 }
 
 extern void

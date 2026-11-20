@@ -234,4 +234,15 @@ cly_filter_config_leaf(const struct lysc_node * node)
 	         (LYS_STATUS_OBSLT | LYS_STATUS_DEPRC));
 }
 
+#if defined(CONFIG_CLY_DEBUG)
+
+/*
+ * Ensure the schema node given in argument has at least one LYS_LIST parent
+ * node or is a list schema node itself.
+ */
+extern bool
+cly_node_is_list_entry(const struct lysc_node * node);
+
+#endif /* defined(CONFIG_CLY_DEBUG) */
+
 #endif /* _CLY_COMMON_H */

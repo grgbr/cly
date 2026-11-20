@@ -366,8 +366,8 @@ cly_change_make_list_path(char **                         data_path,
 				const struct cly_change * chg;
 
 				chg = cly_change_peek_batch(batch, c);
-				cly_change_assert(chg);
-				if ((chg->type != CLY_KEY_CHANGE_TYPE) ||
+				if (!chg ||
+				    (chg->type != CLY_KEY_CHANGE_TYPE) ||
 				    (srepo_sch_node_parent(chg->scn) != node))
 					break;
 
@@ -392,7 +392,7 @@ cly_change_make_list_path(char **                         data_path,
 	cly_assert(sz);
 	cly_assert(sz < SREPO_XPATH_SIZE);
 	cly_assert(c);
-	cly_assert(c <= CLY_CHANGE_BATCH_NR);
+	cly_assert(c < CLY_CHANGE_BATCH_NR);
 
 	*str = '\0';
 	*data_path = pth;
@@ -435,7 +435,13 @@ cly_change_exec_list_batch(const struct cly_change_batch * batch,
 		return (int)len;
 	}
 
-	while (c < batch->cnt) {
+	cly_assert(c <= batch->cnt);
+	if (c == batch->cnt) {
+		cly_cmd_talk(command, "missing parameter(s)");
+		goto free;
+	}
+
+	do {
 		err = cly_change_exec(&batch->changes[c],
 		                      session,
 		                      dpth,
@@ -443,9 +449,7 @@ cly_change_exec_list_batch(const struct cly_change_batch * batch,
 		                      command);
 		if (err != SR_ERR_OK)
 			goto discard;
-
-		c++;
-	}
+	} while (++c < batch->cnt);
 
 	err = srepo_apply_changes(session);
 	if (err != SR_ERR_OK) {
@@ -461,6 +465,7 @@ cly_change_exec_list_batch(const struct cly_change_batch * batch,
 
 discard:
 	srepo_discard_changes(session);
+free:
 	cly_free(dpth);
 
 	return -EPERM;

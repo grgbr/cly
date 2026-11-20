@@ -256,7 +256,8 @@ srepo_table_process_list_entry(sr_session_ctx_t *      session __unused,
 				                              proc->style,
 				                              dtl);
 			else if ((err == SR_ERR_NOT_FOUND) &&
-			         !srepo_sch_is_mandatory(scl))
+			         (!srepo_sch_is_mandatory(scl) ||
+			          !srepo_sch_is_key(scl)))
 				cly_srepo_table_clear_node_cell(cell);
 			else
 				cly_srepo_table_set_err_cell(cell, proc->style);
