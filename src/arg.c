@@ -251,7 +251,7 @@ cly_arg_parse_choice(const struct cly_arg * choice,
 			return ret;
 	}
 
-	cly_cmd_talk(command, "'%s': invalid argument.", argv[0]);
+	cly_cmd_talk(command, "'%s': invalid argument", argv[0]);
 
 	return -EINVAL;
 }

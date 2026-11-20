@@ -26,6 +26,37 @@ cly_cmd_parse_args(const struct cly_cmd * command,
 	if (cly_cmd_has_args(command)) {
 		int cnt = 0;
 
+#error TODO: implement mandatory argument support!
+#if 1
+		const struct cly_node * child = cly_node_child(&command->super);
+
+		do {
+			cly_assert(child);
+
+			int ret;
+
+			ret = cly_arg_parse((const struct cly_arg *)child,
+			                    command,
+			                    directory,
+			                    context,
+			                    argc - cnt,
+			                    &argv[cnt],
+			                    data);
+			cly_assert(ret);
+			cly_assert((ret + cnt) <= argc);
+			if (ret < 0)
+				return ret;
+
+			cnt += ret;
+			if (cnt == argc)
+				break;
+
+			child =  cly_node_next_sibling(child);
+		} while (child);
+
+		if (cnt == argc)
+			return argc;
+#else
 		do {
 			struct cly_node * child;
 			int               ret = 0;
@@ -61,9 +92,10 @@ cly_cmd_parse_args(const struct cly_cmd * command,
 		cly_assert(cnt == argc);
 
 		return argc;
+#endif
 	}
 
-	cly_cmd_talk(command, "too many arguments.");
+	cly_cmd_talk(command, "too many arguments");
 
 	return -EINVAL;
 }
