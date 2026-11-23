@@ -26,7 +26,6 @@ cly_cmd_parse_args(const struct cly_cmd * command,
 	if (cly_cmd_has_args(command)) {
 		int cnt = 0;
 
-#if 1
 		const struct cly_node * child = cly_node_child(&command->super);
 
 		do {
@@ -52,43 +51,6 @@ cly_cmd_parse_args(const struct cly_cmd * command,
 
 			child =  cly_node_next_sibling(child);
 		} while (child);
-#else
-		do {
-			struct cly_node * child;
-			int               ret = 0;
-
-			cly_node_foreach_child(&command->super, child) {
-				const struct cly_arg * arg =
-					(const struct cly_arg *)child;
-
-				ret = cly_arg_parse(arg,
-				                    command,
-				                    directory,
-				                    context,
-				                    argc - cnt,
-				                    &argv[cnt],
-				                    data);
-				if (ret)
-					break;
-			}
-
-			cly_assert(ret <= (argc - cnt));
-			if (!ret) {
-				cly_cmd_talk(command,
-				             "'%s': invalid argument.",
-				             argv[cnt]);
-				return -EINVAL;
-			}
-			else if (ret < 0)
-				return ret;
-
-			cnt += ret;
-		} while (cnt < argc);
-
-		cly_assert(cnt == argc);
-
-		return argc;
-#endif
 	}
 
 	cly_cmd_talk(command, "too many arguments");
@@ -191,6 +153,12 @@ cly_cmd_complete(const struct cly_cmd * command,
 			                       matches);
 	}
 	else if (!length || !strncmp(word, command->name, length)) {
+		/*
+		 * TODO: give command a change to inhibit completion matches
+		 * generation.
+		 * This may be needed when completion result depends on wether
+		 * edition mode is enabled or not for example (`set' commands).
+		 */
 		char * name;
 
 		name = cly_strdup(command->name);

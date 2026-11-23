@@ -77,6 +77,32 @@ cly_arg_create(size_t size, const struct cly_arg_ops * opers)
  * Parameter argument handling
  ******************************************************************************/
 
+void
+cly_arg_parm_display_list(char ** matches,
+                          int     count,
+                          int     max_length,
+                          void *  data)
+{
+	cly_arg_assert_parm((const struct cly_arg_parm *)data);
+
+	char **                     list;
+	int                         c;
+	const struct cly_arg_parm * parm = (const struct cly_arg_parm *)data;
+
+	list = cly_malloc((count + 2) * sizeof(list[0]));
+	cly_assert(list);
+
+	for (c = 0; c <= count; c++)
+		list[c] = &matches[c][parm->len + 1];
+	list[count + 1] = NULL;
+
+	rl_display_match_list(list,
+	                      count,
+	                      max_length - (parm->len + 1));
+
+	cly_free(list);
+}
+
 /*
  * Scan command line arguments to detect wether the parameter given as first
  * argument has already been completed or not.
@@ -520,33 +546,6 @@ cly_arg_parse_kword_parm(const struct cly_arg * argument,
 }
 
 static void
-cly_arg_display_kword_list(char ** matches,
-                           int     count,
-                           int     max_length,
-                           void *  data)
-{
-	cly_arg_assert_kword_parm((const struct cly_arg_kword_parm *)data);
-
-	char **                           list;
-	int                               c;
-	const struct cly_arg_kword_parm * parm =
-		(const struct cly_arg_kword_parm *)data;
-
-	list = cly_malloc((count + 2) * sizeof(list[0]));
-	cly_assert(list);
-
-	for (c = 0; c <= count; c++)
-		list[c] = &matches[c][parm->super.len + 1];
-	list[count + 1] = NULL;
-
-	rl_display_match_list(list,
-	                      count,
-	                      max_length - (parm->super.len + 1));
-
-	cly_free(list);
-}
-
-static void
 cly_arg_complete_kword_term(const struct cly_arg_kword_term * terminal,
                             const struct cly_arg_kword_parm * parameter,
                             const char *                      word,
@@ -610,7 +609,7 @@ _cly_arg_complete_kword_parm(const struct cly_arg_kword_parm * parameter,
 
 		if (cly_match_count(matches))
 			cly_shell_enroll_display_compl(
-				cly_arg_display_kword_list,
+				cly_arg_parm_display_list,
 				(void *)parameter);
 	}
 }

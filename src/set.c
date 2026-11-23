@@ -1,6 +1,7 @@
 #include "set.h"
 #include "change.h"
 #include "cly.h"
+#include <srutils/srepo/data.h>
 
 /*
  * Make sure that CLY_CHANGE_BATCH_NR may be encoded using a positive signed
@@ -250,6 +251,83 @@ cly_arg_parse_leaf_parm(const struct cly_arg * argument,
 }
 
 static void
+cly_arg_complete_leaf_term(const char *                     terminal,
+                           size_t                           tlen,
+                           const struct cly_arg_leaf_parm * parameter,
+                           const char *                     word,
+                           size_t                           wlen,
+                           struct cly_match *               matches)
+{
+	cly_assert(terminal);
+	cly_assert(tlen);
+	cly_assert(strlen(terminal) == tlen);
+	cly_arg_assert_leaf_parm(parameter);
+
+	if (!wlen || ((wlen <= tlen) && !memcmp(word, terminal, wlen))) {
+		char * kw;
+		int    ret __unused;
+
+		ret = cly_asprintf(&kw,
+		                   "%s=%s",
+		                   parameter->super.name,
+		                   terminal);
+		cly_assert((size_t)ret == (parameter->super.len + 1 + tlen));
+
+		/*
+		 * Give ownership of `kw' to `matches'. Allocated string
+		 * ownership will be transfered from `matches' to readline(3) by
+		 * cly_shell_complete().
+		 * Readline(3) will free(3) it at completion process termination
+		 * time.
+		 */
+		cly_match_push(matches, kw);
+	}
+}
+
+static void
+cly_arg_complete_leaf_bool(const struct cly_arg_leaf_parm * parameter,
+                           const char *                     word,
+                           size_t                           length,
+                           struct cly_match *               matches)
+{
+	cly_arg_complete_leaf_term("true",
+	                           sizeof("true") - 1,
+	                           parameter,
+	                           word,
+	                           length,
+	                           matches);
+	cly_arg_complete_leaf_term("false",
+	                           sizeof("false") - 1,
+	                           parameter,
+	                           word,
+	                           length,
+	                           matches);
+}
+
+static void
+cly_arg_complete_leaf_enum(const struct cly_arg_leaf_parm * parameter,
+                           const struct lysc_type_enum *    type,
+                           const char *                     word,
+                           size_t                           length,
+                           struct cly_match *               matches)
+{
+	const struct lysc_type_bitenum_item * enm;
+
+	LY_ARRAY_FOR_ITER(type->enums, typeof(*enm), enm) {
+		size_t len;
+
+		len = strnlen(enm->name, CLY_ARG_MAX);
+		if (len && (len < CLY_ARG_MAX))
+			cly_arg_complete_leaf_term(enm->name,
+			                           len,
+			                           parameter,
+			                           word,
+			                           length,
+			                           matches);
+	}
+}
+
+static void
 _cly_arg_complete_leaf_parm(const struct cly_arg_leaf_parm * parameter,
                             const char *                     word,
                             size_t                           length,
@@ -259,19 +337,75 @@ _cly_arg_complete_leaf_parm(const struct cly_arg_leaf_parm * parameter,
 	cly_match_assert(matches);
 
 	if (cly_arg_complete_parm_name((const struct cly_arg_parm *)parameter,
-	                               word,
-	                               length,
-	                               matches))
+	                                word,
+	                                length,
+	                                matches))
 		return;
 
-#warning generate completion matches for enum based / bool / ... leaves
+	if (!memcmp(word, parameter->super.name, parameter->super.len) &&
+	    (word[parameter->super.len] == '=')) {
+		/* Generate parameter value completion matches. */
+		const struct lysc_type * type = parameter->leaf->type;
+
+		word = &word[parameter->super.len + 1];
+		length -= parameter->super.len + 1;
+
+		switch (type->basetype) {
+		case LY_TYPE_BOOL:
+			cly_arg_complete_leaf_bool(parameter,
+			                           word,
+			                           length,
+			                           matches);
+			break;
+
+		case LY_TYPE_ENUM:
+			cly_arg_complete_leaf_enum(
+				parameter,
+				(const struct lysc_type_enum *)type,
+				word,
+				length,
+				matches);
+			break;
+
+		case LY_TYPE_BITS:
+		case LY_TYPE_UNION:
+#warning Implement bits and union values completion support !!
+			return;
+
+		case LY_TYPE_UNKNOWN:
+		case LY_TYPE_BINARY:
+		case LY_TYPE_UINT8:
+		case LY_TYPE_UINT16:
+		case LY_TYPE_UINT32:
+		case LY_TYPE_UINT64:
+		case LY_TYPE_STRING:
+		case LY_TYPE_DEC64:
+		case LY_TYPE_EMPTY:
+		case LY_TYPE_IDENT:
+		case LY_TYPE_INST:
+		case LY_TYPE_LEAFREF:
+		case LY_TYPE_INT8:
+		case LY_TYPE_INT16:
+		case LY_TYPE_INT32:
+		case LY_TYPE_INT64:
+			return;
+
+		default:
+			cly_assert(0);
+		}
+
+		if (cly_match_count(matches))
+			cly_shell_enroll_display_compl(
+				cly_arg_parm_display_list,
+				(void *)parameter);
+	}
 }
 
 static void
 cly_arg_complete_leaf_parm(const struct cly_arg * argument,
                            const struct cly_cmd * command __unused,
                            const struct cly_dir * directory __unused,
-                           struct cly_context *   context __unused,
+                           struct cly_context *   context,
                            const char *           word,
                            size_t                 length,
                            int                    argc __unused,
@@ -284,13 +418,19 @@ cly_arg_complete_leaf_parm(const struct cly_arg * argument,
 	cly_assert_context(context);
 	cly_match_assert(matches);
 
-	const struct cly_arg_leaf_parm * parm =
-		(const struct cly_arg_leaf_parm *)argument;
+	if (*cly_cand_session(context)) {
+		const struct cly_arg_leaf_parm * parm =
+			(const struct cly_arg_leaf_parm *)argument;
 
-	if (!cly_arg_parm_already_completed((const struct cly_arg_parm *)parm,
-	                                    argc,
-	                                    argv))
-		_cly_arg_complete_leaf_parm(parm, word, length, matches);
+		if (!cly_arg_parm_already_completed(
+			(const struct cly_arg_parm *)parm,
+			argc,
+			argv))
+			_cly_arg_complete_leaf_parm(parm,
+			                            word,
+			                            length,
+			                            matches);
+	}
 }
 
 static const struct cly_arg_ops cly_arg_leaf_parm_ops = {
@@ -406,9 +546,30 @@ cly_set_fini_cmd(struct cly_cmd * command)
 	srepo_free(((struct cly_set_cmd *)command)->path);
 }
 
+static void
+cly_set_complete_args(const struct cly_cmd * command,
+                      const struct cly_dir * directory,
+                      struct cly_context *   context,
+                      const char *           word,
+                      size_t                 length,
+                      int                    argc,
+                      const char * const     argv[],
+                      struct cly_match *     matches)
+{
+	if (*cly_cand_session(context))
+		cly_cmd_complete_args(command,
+		                      directory,
+		                      context,
+		                      word,
+		                      length,
+		                      argc,
+		                      argv,
+		                      matches);
+}
+
 static const struct cly_cmd_ops cly_set_cmd_ops = {
 	.parse    = cly_set_parse_cmd,
-	.complete = cly_cmd_complete_args,
+	.complete = cly_set_complete_args,
 	.fini     = cly_set_fini_cmd
 };
 
@@ -673,13 +834,95 @@ cly_arg_parse_key(const struct cly_arg * argument,
 	return 1;
 }
 
+struct cly_arg_key_compl {
+	const char *       word;
+	size_t             len;
+	struct cly_match * matches;
+};
+
+#define cly_arg_key_assert_compl(_compl) \
+	cly_assert(_compl); \
+	cly_assert(!(_compl)->len || (_compl)->word); \
+	cly_match_assert((_compl)->matches)
+
+static sr_error_t
+cly_arg_process_key_compl(sr_session_ctx_t *      session __unused,
+                          const char *            path __unused,
+                          const struct lyd_node * entry,
+                          void *                  data)
+{
+	cly_assert(session);
+	cly_assert(path);
+	cly_assert(entry);
+	cly_arg_key_assert_compl((const struct cly_arg_key_compl *)data);
+
+	const struct cly_arg_key_compl * compl = data;
+	const char *                     val = srepo_dat_node_as_str(entry);
+	size_t                           len = val ? strlen(val) : 0;
+
+	if (compl->len <= len) {
+		if (!compl->len || !memcmp(compl->word, val, compl->len)) {
+			char * v = cly_strdup(val);
+
+			/*
+			 * Give ownership of `name' to `matches'. Allocated
+			 * string ownership will be transfered from `matches' to
+			 * readline(3) by cly_shell_complete().
+			 * Readline(3) will free(3) it at completion process
+			 * termination time.
+			 */
+			cly_match_push(compl->matches, v);
+
+			/*
+			 * Disable appending the completion character after a
+			 * selected match.
+			 */
+			cly_shell_suppress_complete_char();
+		}
+	}
+
+	return SR_ERR_OK;
+}
+
+static void
+cly_arg_complete_key_values(const struct cly_arg_key * key,
+                            struct cly_context *       context,
+                            const char *               word,
+                            size_t                     length,
+                            struct cly_match *         matches)
+{
+	cly_arg_assert_key(key);
+	cly_assert_context(context);
+	cly_match_assert(matches);
+
+	sr_session_ctx_t * sess = *cly_cand_session(context);
+
+	if (sess) {
+		char *                         path;
+		const struct cly_arg_key_compl compl = {
+			.word    = word,
+			.len     = length,
+			.matches = matches
+		};
+
+		path = srepo_sch_node_path((const struct lysc_node *)key->leaf);
+		srepo_dat_loadn_iter(sess,
+		                     path,
+		                     1,
+		                     0,
+		                     cly_arg_process_key_compl,
+		                     (void *)&compl);
+		srepo_free(path);
+	}
+}
+
 static void
 cly_arg_complete_key(const struct cly_arg * argument,
                      const struct cly_cmd * command __unused,
                      const struct cly_dir * directory __unused,
-                     struct cly_context *   context __unused,
-                     const char *           word __unused,
-                     size_t                 length __unused,
+                     struct cly_context *   context,
+                     const char *           word,
+                     size_t                 length,
                      int                    argc __unused,
                      const char * const     argv[] __unused,
                      struct cly_match *     matches)
@@ -690,7 +933,10 @@ cly_arg_complete_key(const struct cly_arg * argument,
 	cly_assert_context(context);
 	cly_match_assert(matches);
 
-#warning implement key value completion
+	const struct cly_arg_key * key = (const struct cly_arg_key *)argument;
+
+	/* if ! already completed */
+	cly_arg_complete_key_values(key, context, word, length, matches);
 }
 
 static const struct cly_arg_ops cly_arg_key_ops = {
@@ -873,9 +1119,40 @@ cly_set_fini_list_cmd(struct cly_cmd * command)
 	cly_change_path_fini(&((struct cly_set_list_cmd *)command)->path);
 }
 
+static void
+cly_set_complete_list_args(const struct cly_cmd * command,
+                           const struct cly_dir * directory,
+                           struct cly_context *   context,
+                           const char *           word,
+                           size_t                 length,
+                           int                    argc,
+                           const char * const     argv[],
+                           struct cly_match *     matches)
+{
+	if (*cly_cand_session(context)) {
+		const struct cly_node * arg;
+		int                     cnt = 0;
+
+		cly_node_foreach_child(&command->super, arg) {
+			if (cnt++ == argc || !arg->next)
+				break;
+		}
+
+		cly_arg_complete((const struct cly_arg *)arg,
+		                 command,
+		                 directory,
+		                 context,
+		                 word,
+		                 length,
+		                 argc,
+		                 argv,
+		                 matches);
+	}
+}
+
 static const struct cly_cmd_ops cly_set_cmd_list_ops = {
 	.parse    = cly_set_parse_list_cmd,
-	.complete = cly_cmd_complete_args,
+	.complete = cly_set_complete_list_args,
 	.fini     = cly_set_fini_list_cmd
 };
 

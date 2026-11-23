@@ -160,6 +160,12 @@ struct cly_arg_parm {
 	cly_assert((_parm)->len < CLY_ARG_MAX); \
 	cly_assert(strnlen((_parm)->name, CLY_ARG_MAX) == (_parm)->len)
 
+extern void
+cly_arg_parm_display_list(char ** matches,
+                          int     count,
+                          int     max_length,
+                          void *  data);
+
 extern bool
 cly_arg_parm_already_completed(const struct cly_arg_parm * parm,
                                int                         argc,
