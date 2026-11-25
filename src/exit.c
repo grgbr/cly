@@ -1,4 +1,5 @@
 #include "exit.h"
+#include "edit.h"
 #include "cmd.h"
 #include "cly.h"
 
@@ -76,7 +77,7 @@ destroy:
 
 static const struct cly_cmd_ops cly_exit_cmd_ops = {
 	.parse    = cly_exit_parse_cmd,
-	.complete = cly_cmd_complete_args,
+	.complete = cly_edit_complete_args,
 	.fini     = cly_cmd_null_fini
 };
 

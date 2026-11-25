@@ -2,6 +2,39 @@
 #include "cmd.h"
 #include "cly.h"
 
+void
+cly_edit_complete_args(const struct cly_cmd * command,
+                       const struct cly_dir * directory,
+                       struct cly_context *   context,
+                       const char *           word,
+                       size_t                 length,
+                       int                    argc,
+                       const char * const     argv[],
+                       struct cly_match *     matches)
+{
+	cly_cmd_assert(command);
+	cly_dir_assert(directory);
+	cly_assert_context(context);
+	cly_assert(word);
+	cly_assert(length < CLY_ARG_MAX);
+	cly_assert(strnlen(word, CLY_ARG_MAX) == length);
+	cly_assert(argc >= 0);
+	cly_assert(!argc || argv);
+	cly_match_assert(matches);
+
+	if (*cly_cand_session(context))
+		cly_cmd_complete_args(command,
+		                      directory,
+		                      context,
+		                      word,
+		                      length,
+		                      argc,
+		                      argv,
+		                      matches);
+	else
+		cly_shell_compl_talk("no ongoing edition");
+}
+
 /******************************************************************************
  * `edit' command handling.
  * Enter editon mode.

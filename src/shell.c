@@ -176,6 +176,15 @@ cly_shell_shutdown(void)
 }
 
 void
+cly_shell_compl_vtalk(const char * format, va_list args)
+{
+	rl_crlf();
+	vfprintf(stderr, format, args);
+	fputc('\n', stderr);
+	rl_reset_line_state();
+}
+
+void
 cly_shell_enroll_display_compl(cly_shell_display_compl_fn * display,
                                void *                       data)
 {

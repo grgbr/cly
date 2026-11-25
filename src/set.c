@@ -1,6 +1,7 @@
 #include "set.h"
 #include "change.h"
 #include "cly.h"
+#include "edit.h"
 #include <srutils/srepo/data.h>
 
 /*
@@ -546,30 +547,9 @@ cly_set_fini_cmd(struct cly_cmd * command)
 	srepo_free(((struct cly_set_cmd *)command)->path);
 }
 
-static void
-cly_set_complete_args(const struct cly_cmd * command,
-                      const struct cly_dir * directory,
-                      struct cly_context *   context,
-                      const char *           word,
-                      size_t                 length,
-                      int                    argc,
-                      const char * const     argv[],
-                      struct cly_match *     matches)
-{
-	if (*cly_cand_session(context))
-		cly_cmd_complete_args(command,
-		                      directory,
-		                      context,
-		                      word,
-		                      length,
-		                      argc,
-		                      argv,
-		                      matches);
-}
-
 static const struct cly_cmd_ops cly_set_cmd_ops = {
 	.parse    = cly_set_parse_cmd,
-	.complete = cly_set_complete_args,
+	.complete = cly_edit_complete_args,
 	.fini     = cly_set_fini_cmd
 };
 
@@ -1148,6 +1128,8 @@ cly_set_complete_list_args(const struct cly_cmd * command,
 		                 argv,
 		                 matches);
 	}
+	else
+		cly_shell_compl_talk("no ongoing edition");
 }
 
 static const struct cly_cmd_ops cly_set_cmd_list_ops = {

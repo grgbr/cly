@@ -176,7 +176,7 @@ extern char *
 cly_strdup(const char * string)
 	__cly_nonull(1) __returns_nonull __warn_result;
 
-static inline __srepo_nonull(1, 2) __printf(2, 3) __warn_result
+static inline __cly_nonull(1, 2) __printf(2, 3) __warn_result
 int
 cly_asprintf(char ** string, const char * format, ...)
 {

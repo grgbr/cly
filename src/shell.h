@@ -38,6 +38,23 @@ cly_shell_suppress_complete_char(void)
 }
 
 extern void
+cly_shell_compl_vtalk(const char * format, va_list args)
+	__cly_nonull(1) __printf(1, 0);
+
+static inline __cly_nonull(1) __printf(1, 2)
+void
+cly_shell_compl_talk(const char * format, ...)
+{
+	cly_assert(format);
+
+	va_list args;
+
+	va_start(args, format);
+	cly_shell_compl_vtalk(format, args);
+	va_end(args);
+}
+
+extern void
 cly_shell_enroll_display_compl(cly_shell_display_compl_fn * display,
                                void *                       data);
 
