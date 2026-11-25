@@ -6,10 +6,6 @@
 TODO
 ####
 
-#. edition
-
-   #. set completion should generate warning when edition off
-
 #. set command
 
    #. fix completion for multiple attributes

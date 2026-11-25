@@ -31,7 +31,7 @@ struct cly_show_work {
 #define cly_show_assert_work(_work) \
 	cly_assert(_work); \
 	cly_assert((_work)->format >= 0); \
-	cly_assert((_work)->format < CLY_DATA_FMT_NR); \
+	cly_assert((_work)->format <= CLY_DATA_FMT_NR); \
 	cly_assert((_work)->source >= 0); \
 	cly_assert((_work)->source <= CLY_DATA_SRC_NR)
 
@@ -167,6 +167,7 @@ cly_show_exec_config_work(struct cly_work * work, struct cly_context * context)
 	 * related informations.
 	 */
 	switch (wk->format) {
+	case CLY_DATA_FMT_NR:
 	case CLY_TABLE_DATA_FMT:
 		ret = cly_show_table(&cmd->super,
 		                     cmd->table,
@@ -233,6 +234,7 @@ cly_show_exec_oper_work(struct cly_work * work, struct cly_context * context)
 	 * related informations.
 	 */
 	switch (wk->format) {
+	case CLY_DATA_FMT_NR:
 	case CLY_TABLE_DATA_FMT:
 		ret = cly_show_table(&cmd->super,
 		                     cmd->table,
@@ -296,7 +298,7 @@ cly_show_parse_cmd(const struct cly_cmd *      command,
 	/* Cannot fail. */
 	wk = (struct cly_show_work *)
 	     cly_dir_work_create(sizeof(*wk), command, opers);
-	wk->format = CLY_TABLE_DATA_FMT;
+	wk->format = CLY_DATA_FMT_NR;
 	wk->source = CLY_DATA_SRC_NR;
 
 	ret = cly_cmd_parse_args(command, directory, context, argc, argv, wk);
@@ -380,45 +382,68 @@ static const struct cly_cmd_ops cly_show_oper_cmd_ops = {
 };
 
 static int
-cly_show_on_table_match(const struct cly_arg * argument __unused,
-                        const struct cly_cmd * command __unused,
+cly_show_match_format(const struct cly_arg * argument,
+                            const struct cly_cmd * command,
+                            void *                 data,
+                            enum cly_data_format   format)
+{
+	struct cly_show_work * wk = data;
+
+	if (wk->format != CLY_DATA_FMT_NR) {
+		cly_cmd_talk(command,
+		             "duplicate %s parameter",
+		             ((const struct cly_arg_parm *)argument)->name);
+		return -EEXIST;
+	}
+	else {
+		wk->format = format;
+		return 0;
+	}
+}
+
+static int
+cly_show_on_table_match(const struct cly_arg * argument,
+                        const struct cly_cmd * command,
                         const struct cly_dir * directory __unused,
                         struct cly_context *   context __unused,
                         int                    argc __unused,
                         const char * const     argv[] __unused,
                         void *                 data)
 {
-	((struct cly_show_work *)data)->format = CLY_TABLE_DATA_FMT;
-
-	return 0;
+	return cly_show_match_format(argument,
+	                             command,
+	                             data,
+	                             CLY_TABLE_DATA_FMT);
 }
 
 static int
-cly_show_on_json_match(const struct cly_arg * argument __unused,
-                       const struct cly_cmd * command __unused,
+cly_show_on_json_match(const struct cly_arg * argument,
+                       const struct cly_cmd * command,
                        const struct cly_dir * directory __unused,
                        struct cly_context *   context __unused,
                        int                    argc __unused,
                        const char * const     argv[] __unused,
                        void *                 data)
 {
-	((struct cly_show_work *)data)->format = CLY_JSON_DATA_FMT;
-
-	return 0;
+	return cly_show_match_format(argument,
+	                             command,
+	                             data,
+	                             CLY_JSON_DATA_FMT);
 }
 
 static int
-cly_show_on_xml_match(const struct cly_arg * argument __unused,
-                       const struct cly_cmd * command __unused,
-                       const struct cly_dir * directory __unused,
-                       struct cly_context *   context __unused,
-                       int                    argc __unused,
-                       const char * const     argv[] __unused,
-                       void *                 data)
+cly_show_on_xml_match(const struct cly_arg * argument,
+                      const struct cly_cmd * command,
+                      const struct cly_dir * directory __unused,
+                      struct cly_context *   context __unused,
+                      int                    argc __unused,
+                      const char * const     argv[] __unused,
+                      void *                 data)
 {
-	((struct cly_show_work *)data)->format = CLY_XML_DATA_FMT;
-
-	return 0;
+	return cly_show_match_format(argument,
+	                             command,
+	                             data,
+	                             CLY_XML_DATA_FMT);
 }
 
 static const struct cly_arg_kword_term cly_show_format_terms[] = {
@@ -428,31 +453,53 @@ static const struct cly_arg_kword_term cly_show_format_terms[] = {
 };
 
 static int
-cly_show_on_oper_match(const struct cly_arg * argument __unused,
-                       const struct cly_cmd * command __unused,
-                       const struct cly_dir * directory __unused,
-                       struct cly_context *   context __unused,
-                       int                    argc __unused,
-                       const char * const     argv[] __unused,
-                       void *                 data)
+cly_show_match_source(const struct cly_arg * argument,
+                      const struct cly_cmd * command,
+                      void *                 data,
+                      enum cly_data_source   source)
 {
-	((struct cly_show_work *)data)->source = CLY_OPER_DATA_SRC;
+	struct cly_show_work * wk = data;
 
-	return 0;
+	if (wk->source != CLY_DATA_SRC_NR) {
+		cly_cmd_talk(command,
+		             "duplicate %s parameter",
+		             ((const struct cly_arg_parm *)argument)->name);
+		return -EEXIST;
+	}
+	else {
+		wk->source = source;
+		return 0;
+	}
 }
 
 static int
-cly_show_on_edit_match(const struct cly_arg * argument __unused,
-                       const struct cly_cmd * command __unused,
+cly_show_on_oper_match(const struct cly_arg * argument,
+                       const struct cly_cmd * command,
                        const struct cly_dir * directory __unused,
                        struct cly_context *   context __unused,
                        int                    argc __unused,
                        const char * const     argv[] __unused,
                        void *                 data)
 {
-	((struct cly_show_work *)data)->source = CLY_EDIT_DATA_SRC;
+	return cly_show_match_source(argument,
+	                             command,
+	                             data,
+	                             CLY_OPER_DATA_SRC);
+}
 
-	return 0;
+static int
+cly_show_on_edit_match(const struct cly_arg * argument,
+                       const struct cly_cmd * command,
+                       const struct cly_dir * directory __unused,
+                       struct cly_context *   context __unused,
+                       int                    argc __unused,
+                       const char * const     argv[] __unused,
+                       void *                 data)
+{
+	return cly_show_match_source(argument,
+	                             command,
+	                             data,
+	                             CLY_EDIT_DATA_SRC);
 }
 
 static const struct cly_arg_kword_term cly_show_source_terms[] = {
@@ -471,7 +518,7 @@ cly_show_create_config_cmd(const char *             name,
 	cly_dir_assert(directory);
 
 	struct cly_show_cmd *       cmd;
-	struct cly_arg *            choice;
+	struct cly_arg *            grp;
 	struct cly_arg_kword_parm * fmt;
 	struct cly_arg_kword_parm * src;
 
@@ -485,7 +532,7 @@ cly_show_create_config_cmd(const char *             name,
 	                     &cly_show_config_cmd_ops);
 
 	/* Cannot fail. */
-	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
+	grp = cly_arg_createn_add_choice_group((struct cly_node *)cmd);
 
 	/*
 	 * No need to check for returned code since this cannot fail with the
@@ -496,7 +543,7 @@ cly_show_create_config_cmd(const char *             name,
 	                               "format",
 	                               cly_show_format_terms,
 	                               stroll_array_nr(cly_show_format_terms),
-	                               (struct cly_node *)choice);
+	                               (struct cly_node *)grp);
 
 	/*
 	 * No need to check for returned code since this cannot fail with the
@@ -507,7 +554,7 @@ cly_show_create_config_cmd(const char *             name,
 	                               "source",
 	                               cly_show_source_terms,
 	                               stroll_array_nr(cly_show_source_terms),
-	                               (struct cly_node *)choice);
+	                               (struct cly_node *)grp);
 
 	cmd->table = table;
 

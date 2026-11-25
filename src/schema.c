@@ -42,6 +42,7 @@ cly_schema_show_dir(const struct cly_dir *         directory,
 		break;
 #endif /* defined(CONFIG_CLY_DEBUG) */
 
+	case LYS_OUT_UNKNOWN:
 	case LYS_OUT_YANG_COMPILED:
 		ret = cly_dir_show_yang(directory, show->context);
 		if (ret)
@@ -140,7 +141,7 @@ cly_schema_parse_cmd(const struct cly_cmd * command,
 	/* Cannot fail. */
 	wk = (struct cly_schema_work *)
 	     cly_dir_work_create(sizeof(*wk), command, &cly_schema_work_ops);
-	wk->format = LYS_OUT_YANG_COMPILED;
+	wk->format = LYS_OUT_UNKNOWN;
 
 	ret = cly_cmd_parse_args(command, directory, context, argc, argv, wk);
 	if (ret < 0)
@@ -168,17 +169,38 @@ static const struct cly_cmd_ops cly_schema_cmd_ops = {
 };
 
 static int
-cly_schema_on_yang_match(const struct cly_arg * argument __unused,
-                         const struct cly_cmd * command __unused,
+cly_schema_match_format(const struct cly_arg * argument,
+                        const struct cly_cmd * command,
+                        void *                 data,
+                        LYS_OUTFORMAT          format)
+{
+	struct cly_schema_work * wk = data;
+
+	if (wk->format != LYS_OUT_UNKNOWN) {
+		cly_cmd_talk(command,
+		             "duplicate %s parameter",
+		             ((const struct cly_arg_parm *)argument)->name);
+		return -EEXIST;
+	}
+	else {
+		wk->format = format;
+		return 0;
+	}
+}
+
+static int
+cly_schema_on_yang_match(const struct cly_arg * argument,
+                         const struct cly_cmd * command,
                          const struct cly_dir * directory __unused,
                          struct cly_context *   context __unused,
                          int                    argc __unused,
                          const char * const     argv[] __unused,
                          void *                 data)
 {
-	((struct cly_schema_work *)data)->format = LYS_OUT_YANG_COMPILED;
-
-	return 0;
+	return cly_schema_match_format(argument,
+	                               command,
+	                               data,
+	                               LYS_OUT_YANG_COMPILED);
 }
 
 #if defined(CONFIG_CLY_DEBUG)
@@ -192,9 +214,10 @@ cly_schema_on_tree_match(const struct cly_arg * argument __unused,
                          const char * const     argv[] __unused,
                          void *                 data)
 {
-	((struct cly_schema_work *)data)->format = LYS_OUT_TREE;
-
-	return 0;
+	return cly_schema_match_format(argument,
+	                               command,
+	                               data,
+	                               LYS_OUT_TREE);
 }
 
 #endif /* defined(CONFIG_CLY_DEBUG) */
@@ -212,7 +235,7 @@ cly_schema_build_cmd(struct cly_dir * directory)
 	cly_dir_assert(directory);
 
 	struct cly_cmd *            cmd;
-	struct cly_arg *            choice;
+	struct cly_arg *            grp;
 	struct cly_arg_kword_parm * fmt;
 
 	/*
@@ -223,8 +246,8 @@ cly_schema_build_cmd(struct cly_dir * directory)
 	cly_dir_create_cmdn_add(directory, &cmd, "schema", &cly_schema_cmd_ops);
 
 	/* Cannot fail. */
-	choice = cly_arg_createn_add_choice((struct cly_node *)cmd);
-	cly_dir_work_createn_add_arg(false, (struct cly_node *)choice);
+	grp = cly_arg_createn_add_choice_group((struct cly_node *)cmd);
+	cly_dir_work_createn_add_arg(false, (struct cly_node *)grp);
 
 	/*
 	 * No need to check for returned code since this cannot fail with the
@@ -235,5 +258,5 @@ cly_schema_build_cmd(struct cly_dir * directory)
 	                               "format",
 	                               cly_schema_format_terms,
 	                               stroll_array_nr(cly_schema_format_terms),
-	                               (struct cly_node *)choice);
+	                               (struct cly_node *)grp);
 }
