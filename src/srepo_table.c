@@ -77,22 +77,26 @@ cly_srepo_table_load(struct cly_table * table, void * data)
 	                        2,
 	                        dat->flags,
 	                        &cont) == SR_ERR_OK) {
+		char name[SREPO_XPATH_NODE_SIZE];
+
 		cly_table_foreach_line(table, l, ln) {
 			const struct lysc_node * scl;
 			const struct lyd_node *  dtl;
 			struct libscols_cell *   cell;
-			sr_error_t               err;
+			sr_error_t               err = SR_ERR_LY;
 
 			scl = cly_table_line_get_userdata(ln);
 			cly_assert(scl);
 
-			err = srepo_dat_find_node(
-				cont->tree,
-				srepo_sch_node_name(scl),
-				(struct lyd_node **)&dtl);
+			if (srepo_sch_node_name_with_pref(scl, name) > 0) {
+				err = srepo_dat_find_node(
+					cont->tree,
+					name,
+					(struct lyd_node **)&dtl);
 
-			cell = cly_table_line_get_cell(ln, 1);
-			cly_assert(cell);
+				cell = cly_table_line_get_cell(ln, 1);
+				cly_assert(cell);
+			}
 
 			if (err == SR_ERR_OK)
 				cly_srepo_table_set_node_cell(cell,
@@ -215,6 +219,7 @@ srepo_table_process_list_entry(sr_session_ctx_t *      session __unused,
 	struct libscols_line *                    ln;
 	unsigned int                              c;
 	struct libscols_column *                  col;
+	char                                      name[SREPO_XPATH_NODE_SIZE];
 
 	ln = cly_table_new_line((const struct cly_table *)proc->table);
 	cly_assert(ln);
@@ -237,9 +242,14 @@ srepo_table_process_list_entry(sr_session_ctx_t *      session __unused,
 				cly_assert(ent);
 			}
 
-			err = srepo_dat_find_node(ent,
-			                          srepo_sch_node_name(scl),
-			                          (struct lyd_node **)&dtl);
+			if (srepo_sch_node_name_with_pref(scl, name) > 0)
+				err = srepo_dat_find_node(
+					ent,
+					name,
+					(struct lyd_node **)&dtl);
+			else
+				err = SR_ERR_LY;
+
 			if (err == SR_ERR_OK)
 				cly_srepo_table_set_key_cell(cell,
 				                             proc->style,
@@ -248,9 +258,15 @@ srepo_table_process_list_entry(sr_session_ctx_t *      session __unused,
 				cly_srepo_table_set_err_cell(cell, proc->style);
 		}
 		else {
-			err = srepo_dat_find_node(entry,
-			                          srepo_sch_node_name(scl),
-			                          (struct lyd_node **)&dtl);
+			if (srepo_sch_node_name_with_pref(scl, name) > 0) {
+				err = srepo_dat_find_node(
+					entry,
+					name,
+					(struct lyd_node **)&dtl);
+			}
+			else
+				err = SR_ERR_LY;
+
 			if (err == SR_ERR_OK)
 				cly_srepo_table_set_node_cell(cell,
 				                              proc->style,
