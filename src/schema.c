@@ -169,38 +169,28 @@ static const struct cly_cmd_ops cly_schema_cmd_ops = {
 };
 
 static int
-cly_schema_match_format(const struct cly_arg * argument,
-                        const struct cly_cmd * command,
-                        void *                 data,
-                        LYS_OUTFORMAT          format)
+cly_schema_match_format(void * data, LYS_OUTFORMAT format)
 {
 	struct cly_schema_work * wk = data;
 
-	if (wk->format != LYS_OUT_UNKNOWN) {
-		cly_cmd_talk(command,
-		             "duplicate %s parameter",
-		             ((const struct cly_arg_parm *)argument)->name);
-		return -EEXIST;
-	}
-	else {
+	if (wk->format == LYS_OUT_UNKNOWN) {
 		wk->format = format;
 		return 0;
 	}
+	else
+		return -EEXIST;
 }
 
 static int
-cly_schema_on_yang_match(const struct cly_arg * argument,
-                         const struct cly_cmd * command,
+cly_schema_on_yang_match(const struct cly_arg * argument __unused,
+                         const struct cly_cmd * command __unused,
                          const struct cly_dir * directory __unused,
                          struct cly_context *   context __unused,
                          int                    argc __unused,
                          const char * const     argv[] __unused,
                          void *                 data)
 {
-	return cly_schema_match_format(argument,
-	                               command,
-	                               data,
-	                               LYS_OUT_YANG_COMPILED);
+	return cly_schema_match_format(data, LYS_OUT_YANG_COMPILED);
 }
 
 #if defined(CONFIG_CLY_DEBUG)
@@ -214,10 +204,7 @@ cly_schema_on_tree_match(const struct cly_arg * argument __unused,
                          const char * const     argv[] __unused,
                          void *                 data)
 {
-	return cly_schema_match_format(argument,
-	                               command,
-	                               data,
-	                               LYS_OUT_TREE);
+	return cly_schema_match_format(data, LYS_OUT_TREE);
 }
 
 #endif /* defined(CONFIG_CLY_DEBUG) */

@@ -535,9 +535,13 @@ cly_arg_parse_kword_parm(const struct cly_arg * argument,
 		if (!ret)
 			/* Matched successfully. */
 			return 1;
-		else if (ret == -EEXIST)
-			/* Already specified: reject duplicate statements. */
+
+		if (ret == -EEXIST) {
+			cly_cmd_talk(command,
+			             "duplicate %s parameter",
+			             parm->super.name);
 			return -EEXIST;
+		}
 	}
 
 	cly_cmd_talk(command,

@@ -64,3 +64,7 @@ TODO
    #. gcc sanitization
 
 #. documentation
+   
+#. help support
+   
+#. UART window resize handling
