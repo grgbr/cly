@@ -168,7 +168,7 @@ cly_table_new_col(const struct cly_table * table,
 		return NULL;
 	}
 
-	if (scols_table_get_ncols(table->scols) >= CLY_TABLE_COLUMN_MAX) {
+	if (scols_table_get_ncols(table->scols) > CLY_TABLE_COLUMN_MAX) {
 		errno = ENOBUFS;
 		return NULL;
 	}

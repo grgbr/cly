@@ -371,7 +371,7 @@ cly_srepo_table_push_array(struct cly_srepo_table_array * array,
 	if (array->cnt == array->nr) {
 		unsigned int nr = 2 * array->nr;
 
-		if (nr >= CLY_TABLE_COLUMN_MAX)
+		if (nr > CLY_TABLE_COLUMN_MAX)
 			return -ENOBUFS;
 
 		array->nr = nr;
