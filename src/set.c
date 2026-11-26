@@ -329,6 +329,29 @@ cly_arg_complete_leaf_enum(const struct cly_arg_leaf_parm * parameter,
 }
 
 static void
+cly_arg_complete_leaf_bits(const struct cly_arg_leaf_parm * parameter,
+                           const struct lysc_type_bits *    type,
+                           const char *                     word,
+                           size_t                           length,
+                           struct cly_match *               matches)
+{
+	const struct lysc_type_bitenum_item * bts;
+
+	LY_ARRAY_FOR_ITER(type->bits, typeof(*bts), bts) {
+		size_t len;
+
+		len = strnlen(bts->name, CLY_ARG_MAX);
+		if (len && (len < CLY_ARG_MAX))
+			cly_arg_complete_leaf_term(bts->name,
+			                           len,
+			                           parameter,
+			                           word,
+			                           length,
+			                           matches);
+	}
+}
+
+static void
 _cly_arg_complete_leaf_parm(const struct cly_arg_leaf_parm * parameter,
                             const char *                     word,
                             size_t                           length,
@@ -369,10 +392,16 @@ _cly_arg_complete_leaf_parm(const struct cly_arg_leaf_parm * parameter,
 			break;
 
 		case LY_TYPE_BITS:
-		case LY_TYPE_UNION:
-#warning Implement bits and union values completion support !!
-			return;
+			cly_arg_complete_leaf_bits(
+				parameter,
+				(const struct lysc_type_bits *)type,
+				word,
+				length,
+				matches);
+			break;
 
+#warning Implement remaining value schema type completion support !!
+		case LY_TYPE_UNION:
 		case LY_TYPE_UNKNOWN:
 		case LY_TYPE_BINARY:
 		case LY_TYPE_UINT8:
