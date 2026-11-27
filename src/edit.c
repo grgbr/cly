@@ -46,7 +46,7 @@ struct cly_edit_work {
 };
 
 static int
-cly_edit_exec_work(struct cly_work *    work, struct cly_context * context)
+cly_edit_exec_work(struct cly_work * work, struct cly_context * context)
 {
 	sr_error_t                   err;
 	const struct cly_edit_work * wk = (struct cly_edit_work *)work;

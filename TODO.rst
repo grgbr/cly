@@ -68,3 +68,5 @@ TODO
 #. help support
    
 #. UART window resize handling
+
+#. datastore locking

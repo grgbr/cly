@@ -88,15 +88,14 @@ cly_srepo_table_load(struct cly_table * table, void * data)
 			scl = cly_table_line_get_userdata(ln);
 			cly_assert(scl);
 
-			if (srepo_sch_node_name_with_pref(scl, name) > 0) {
+			if (srepo_sch_node_name_with_pref(scl, name) > 0)
 				err = srepo_dat_find_node(
 					cont->tree,
 					name,
 					(struct lyd_node **)&dtl);
 
-				cell = cly_table_line_get_cell(ln, 1);
-				cly_assert(cell);
-			}
+			cell = cly_table_line_get_cell(ln, 1);
+			cly_assert(cell);
 
 			if (err == SR_ERR_OK)
 				cly_srepo_table_set_node_cell(cell,

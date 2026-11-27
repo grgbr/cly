@@ -7,6 +7,7 @@
 struct cly_shell {
 	char *                       prompt;
 	char *                       pref;
+	char                         suff;
 	void *                       data;
 	cly_shell_collect_compl_fn * collect_compl;
 	struct cly_match             matches;
@@ -20,6 +21,7 @@ struct cly_shell {
 #define cly_shell_assert(_shell) \
 	cly_assert((_shell)->prompt); \
 	cly_assert((_shell)->pref); \
+	cly_assert(isgraph((_shell)->suff)); \
 	cly_assert(!(_shell)->collect_compl || (_shell)->display_compl)
 
 static struct cly_shell cly_the_shell;
@@ -224,15 +226,19 @@ static void
 _cly_shell_set_prompt(struct cly_shell * shell, const char * prompt)
 {
 	cly_assert(shell->pref);
+	cly_assert(isgraph(shell->suff));
 	cly_assert(prompt);
 	cly_assert(*prompt);
 
 	int ret __unused;
 
 /* TODO: understand how prompt expansion works (see rl_expand_prompt()). */
-
-	ret = cly_asprintf(&shell->prompt, "%s%s> ", shell->pref, prompt);
-	cly_assert(ret >= 4);
+	ret = cly_asprintf(&shell->prompt,
+	                   "%s%s%c ",
+	                   shell->pref,
+	                   prompt,
+	                   shell->suff);
+	cly_assert(ret >= 3);
 }
 
 void
@@ -244,6 +250,21 @@ cly_shell_set_prompt(const char * prompt)
 
 	cly_free(cly_the_shell.prompt);
 	_cly_shell_set_prompt(&cly_the_shell, prompt);
+}
+
+void
+cly_shell_update_prompt_suffix(char suffix)
+{
+	cly_shell_assert(&cly_the_shell);
+	cly_assert(isgraph(suffix));
+
+	size_t len;
+
+	len = strlen(cly_the_shell.prompt);
+	cly_assert(len);
+
+	cly_the_shell.suff = suffix;
+	cly_the_shell.prompt[len - 2] = suffix;
 }
 
 static char *
@@ -484,11 +505,13 @@ cly_shell_setup_compl(struct cly_shell *           shell,
 int
 cly_shell_init(bool                         history,
                const char *                 break_chars,
+               char                         prompt_suff,
                cly_shell_collect_compl_fn * complete,
                void *                       data)
 
 {
 	cly_assert(!break_chars || (break_chars[0] != '\0'));
+	cly_assert(isgraph(prompt_suff));
 
 	const char * user;
 	size_t       len;
@@ -512,7 +535,9 @@ cly_shell_init(bool                         history,
 
 	cly_free(host);
 
+	cly_the_shell.suff = prompt_suff;
 	_cly_shell_set_prompt(&cly_the_shell, "/");
+
 	cly_the_shell.hpath = NULL;
 	cly_the_shell.redisplay = 0;
 	cly_the_shell.shutdown = 0;

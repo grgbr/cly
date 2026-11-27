@@ -12,6 +12,7 @@
 #include "exit.h"
 #include "quit.h"
 #include <utils/signal.h>
+#include <srutils/srepo/data.h>
 
 /******************************************************************************
  * Utilities
@@ -107,6 +108,25 @@ cly_chdir(struct cly_context * context, const struct cly_dir * directory)
 	}
 
 	context->cwd = directory;
+}
+
+static
+void
+cly_update_prompt(struct cly_context * context)
+{
+	cly_assert_context(context);
+
+	if (cly_shell_ison(context)) {
+		if (context->cand_sess) {
+			if (srepo_config_has_diff(context->cand_sess,
+			                          SR_DS_RUNNING) == SR_ERR_OK)
+				cly_shell_update_prompt_suffix('#');
+			else
+				cly_shell_update_prompt_suffix('$');
+		}
+		else
+			cly_shell_update_prompt_suffix('>');
+	}
 }
 
 static int
@@ -408,7 +428,7 @@ main(int argc, const char * const argv[])
 			/* Cannot run in interactive mode... */
 			goto fini;
 
-		ret = cly_shell_init(true, " \t;\n", cly_complete, &ctx);
+		ret = cly_shell_init(true, " \t;\n", '>', cly_complete, &ctx);
 		if (ret || cly_terminated)
 			goto fini_shell;
 
@@ -416,6 +436,7 @@ main(int argc, const char * const argv[])
 		while (ret != -ESHUTDOWN) {
 			struct cly_expr_blk eblk = CLY_EXPR_BLK_INIT(eblk);
 
+			cly_update_prompt(&ctx);
 			ret = cly_shell_read_expr(&eblk);
 			cly_assert(ret <= 0);
 			if (!ret) {

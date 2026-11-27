@@ -18,6 +18,9 @@ typedef void cly_shell_display_compl_fn(char **, int, int, void *);
 extern void
 cly_shell_set_prompt(const char * prompt);
 
+extern void
+cly_shell_update_prompt_suffix(char suffix);
+
 struct cly_expr_blk;
 
 extern int
@@ -67,6 +70,7 @@ cly_shell_shutdown(void);
 extern int
 cly_shell_init(bool                         history,
                const char *                 break_chars,
+               char                         prompt_suff,
                cly_shell_collect_compl_fn * complete,
                void *                       data);
 

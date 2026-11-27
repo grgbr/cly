@@ -26,14 +26,35 @@ cly_exit_exec_work(struct cly_work * work, struct cly_context * context)
 	}
 
 	cly_assert(!srepo_has_changes(*sess));
-	err = srepo_session_stop(*sess);
-	if (err != SR_ERR_OK)
-		cly_warn("cannot stop edition session: %s", sr_strerror(err));
+	err = srepo_copy_config(*sess, NULL, SR_DS_RUNNING);
+	if (err != SR_ERR_OK) {
+		cly_warn("cannot exit edition: "
+		         "failed to copy datastore: %s",
+		         sr_strerror(err));
+		goto stop;
+	}
 
-	cly_info("exited edition mode");
+	err = srepo_session_stop(*sess);
+	if (err != SR_ERR_OK) {
+		cly_warn("cannot exit edition: "
+		         "failed to stop session: %s",
+		         sr_strerror(err));
+		goto err;
+	}
+
 	*sess = NULL;
+	cly_info("exited edition mode");
 
 	return 0;
+
+stop:
+	srepo_session_stop(*sess);
+err:
+	*sess = NULL;
+
+	cly_cmd_talk(wk->cmd, "failed to exit edition");
+
+	return -ESHUTDOWN;
 }
 
 static const struct cly_work_ops cly_exit_work_ops = {
@@ -43,10 +64,10 @@ static const struct cly_work_ops cly_exit_work_ops = {
 
 static int
 cly_exit_parse_cmd(const struct cly_cmd * command,
-                     const struct cly_dir * directory __unused,
-                     struct cly_context *   context,
-                     int                    argc __unused,
-                     const char * const     argv[] __unused)
+                   const struct cly_dir * directory __unused,
+                   struct cly_context *   context,
+                   int                    argc __unused,
+                   const char * const     argv[] __unused)
 {
 	cly_cmd_assert(command);
 	cly_dir_assert(directory);
